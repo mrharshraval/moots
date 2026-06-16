@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Compass,
   MessageCircle,
   Bell,
   UsersRound,
@@ -40,7 +39,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const NAV_ITEMS = [
-  { id: "discover",      label: "Discover",      icon: Compass,        href: "/discover" },
   { id: "chats",         label: "Chats",         icon: MessageCircle,  href: "/chat" },
   { id: "notifications", label: "Notifications", icon: Bell,           href: "/notifications" },
   { id: "friends",       label: "Friends",       icon: UsersRound,     href: "/friends" },
