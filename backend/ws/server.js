@@ -64,7 +64,7 @@ wss.on("connection", (ws, req) => {
 
   // 1. Origin Verification (Security Standard to prevent Cross-Site WebSocket Hijacking - CSWSH)
   if (process.env.NODE_ENV === "production") {
-    const allowedOrigins = ["https://openchat.in", "https://ws.openchat.in"];
+    const allowedOrigins = ["https://moots.in", "https://ws.moots.in"];
     if (!origin || !allowedOrigins.includes(origin)) {
       log(`Connection rejected. Unauthorized origin: ${origin} (IP: ${clientIp})`, "warn");
       ws.close(1008, "Unauthorized Origin");

@@ -1,6 +1,6 @@
-# OpenChat Frontend (Next.js)
+# Moots Frontend (Next.js)
 
-This is the Next.js client-side application for OpenChat, hosted on `openchat.in`. It connects to the standalone WebSocket server running on `ws.openchat.in` to support real-time user matchmaking and chat messaging.
+This is the Next.js client-side application for Moots, hosted on `moots.in`. It connects to the standalone WebSocket server running on `ws.moots.in` to support real-time user matchmaking and chat messaging.
 
 ---
 
@@ -15,7 +15,7 @@ Create a `.env` (or `.env.local`) file in this folder:
 NEXT_PUBLIC_WS_URL=ws://localhost:3001
 
 # For Production Deployment
-NEXT_PUBLIC_WS_URL=wss://ws.openchat.in
+NEXT_PUBLIC_WS_URL=wss://ws.moots.in
 ```
 
 If the environment variable is not defined, the client falls back to `ws://localhost:3001` automatically.

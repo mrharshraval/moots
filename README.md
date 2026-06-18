@@ -1,8 +1,8 @@
-# Openchat System & WebSocket Architecture Documentation
+# Moots System & WebSocket Architecture Documentation
 
-This repository houses the code for **Openchat**, a real-time matching and random chat application. The system is split into two primary segments:
-1. **Frontend**: Next.js client application hosted on `openchat.in`.
-2. **Backend**: Standalone WebSocket server hosted on `ws.openchat.in` using the `ws` package.
+This repository houses the code for **Moots**, a real-time matching and random chat application. The system is split into two primary segments:
+1. **Frontend**: Next.js client application hosted on `moots.in`.
+2. **Backend**: Standalone WebSocket server hosted on `ws.moots.in` using the `ws` package.
 
 ---
 
@@ -10,14 +10,14 @@ This repository houses the code for **Openchat**, a real-time matching and rando
 
 ```
    ┌──────────────────────────────────────────────────────────┐
-   │                 Frontend (openchat.in)                   │
+   │                  Frontend (moots.in)                     │
    │           Next.js / React Client Application             │
    └────────────────────────────┬─────────────────────────────┘
                                 │ WebSocket Connection
-                                │ (wss://ws.openchat.in)
+                                │ (wss://ws.moots.in)
                                 ▼
    ┌──────────────────────────────────────────────────────────┐
-   │            WebSocket Server (ws.openchat.in)             │
+   │             WebSocket Server (ws.moots.in)               │
    │               Standalone Node.js Service                 │
    └──────────────────────────────────────────────────────────┘
 ```
@@ -66,7 +66,7 @@ To run the application locally on your developer machine:
 
 ## 3. Production Deployment Mode
 
-In production, the frontend is served at `openchat.in`, and the WebSocket service runs on a dedicated domain at `ws.openchat.in` behind an SSL/TLS-terminated Nginx proxy.
+In production, the frontend is served at `moots.in`, and the WebSocket service runs on a dedicated domain at `ws.moots.in` behind an SSL/TLS-terminated Nginx proxy.
 
 ### A. WebSocket Server Daemon (PM2 Setup)
 PM2 is used to run the node server continuously in the background, restarting it automatically if it crashes or the VM reboots.
@@ -76,34 +76,34 @@ cd backend/ws
 npm install -g pm2
 
 # Start the server daemon with environment setup
-NODE_ENV=production PORT=3001 pm2 start server.js --name "openchat-ws-server"
+NODE_ENV=production PORT=3001 pm2 start server.js --name "moots-ws-server"
 
 # Persist server state on boot
 pm2 startup
 pm2 save
 ```
 
-### B. Nginx Reverse Proxy Configuration (`ws.openchat.in`)
+### B. Nginx Reverse Proxy Configuration (`ws.moots.in`)
 The WebSocket protocol starts as an HTTP/1.1 request and is "Upgraded" to a TCP connection. Nginx must be configured to pass these hop-by-hop headers.
 
-Example configuration for `/etc/nginx/sites-available/ws.openchat.in`:
+Example configuration for `/etc/nginx/sites-available/ws.moots.in`:
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name ws.openchat.in;
+    server_name ws.moots.in;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ws.openchat.in;
+    server_name ws.moots.in;
 
     # SSL Certificates managed by Let's Encrypt
-    ssl_certificate /etc/letsencrypt/live/ws.openchat.in/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/ws.openchat.in/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/ws.moots.in/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ws.moots.in/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:3001;
@@ -128,7 +128,7 @@ server {
 
 Enable configuration and reload:
 ```bash
-sudo ln -s /etc/nginx/sites-available/ws.openchat.in /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/ws.moots.in /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -211,7 +211,7 @@ Sent to the remaining partner when a peer closes their connection.
 ## 5. Security & Connection Best Practices
 
 ### Backend Standards (Implemented)
-1. **Cross-Site WebSocket Hijacking (CSWSH) Mitigation**: In production, the server validates the incoming HTTP `Origin` header. If the origin is not explicitly `https://openchat.in` or `https://ws.openchat.in`, the request is denied with a `1008` policy exception code.
+1. **Cross-Site WebSocket Hijacking (CSWSH) Mitigation**: In production, the server validates the incoming HTTP `Origin` header. If the origin is not explicitly `https://moots.in` or `https://ws.moots.in`, the request is denied with a `1008` policy exception code.
 2. **Heartbeat Pings**: The server triggers a `ping` request to all active connections every 30 seconds. If a client fails to reply with a `pong` before the next check, the connection is terminated (`ws.terminate()`) to prune stale connections.
 3. **Graceful Terminations**: Listens for termination signals (`SIGINT`, `SIGTERM`) to gracefully exit, sending a `1001` (Going Away) close frame to connected clients and shutting down sockets before terminating the process.
 
