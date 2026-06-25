@@ -8,14 +8,21 @@ importers:
 
   .:
     dependencies:
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       ws:
-        specifier: ^8.18.0
+        specifier: ^8.21.0
         version: 8.21.0
       zod:
-        specifier: ^3.23.8
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
+
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+    engines: {node: '>=12'}
 
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
@@ -29,11 +36,13 @@ packages:
       utf-8-validate:
         optional: true
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
+  dotenv@17.4.2: {}
+
   ws@8.21.0: {}
 
-  zod@3.25.76: {}
+  zod@4.4.3: {}
