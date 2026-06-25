@@ -82,45 +82,45 @@ function LoginContent() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="identifier" className="text-xs font-semibold text-foreground">
-              Username or Email
-            </Label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="identifier"
-                type="text"
-                placeholder="username or email"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
-                disabled={loading}
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="password" className="text-xs font-semibold text-foreground">
-              Password
-            </Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
-                disabled={loading}
-              />
-            </div>
-          </div>
-          <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
-            {loading ? "Logging in..." : "Log In"}
-          </Button>
-        </form>
+         <form onSubmit={handleLogin} className="space-y-4">
+           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+             <Label htmlFor="identifier" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+               Username or Email
+             </Label>
+             <div className="relative flex items-center mt-0.5">
+               <User className="absolute left-0 size-4 text-muted-foreground" />
+               <Input
+                 id="identifier"
+                 type="text"
+                 placeholder="username or email"
+                 value={identifier}
+                 onChange={(e) => setIdentifier(e.target.value)}
+                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
+                 disabled={loading}
+               />
+             </div>
+           </div>
+           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+             <Label htmlFor="password" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+               Password
+             </Label>
+             <div className="relative flex items-center mt-0.5">
+               <Lock className="absolute left-0 size-4 text-muted-foreground" />
+               <Input
+                 id="password"
+                 type="password"
+                 placeholder="••••••••"
+                 value={password}
+                 onChange={(e) => setPassword(e.target.value)}
+                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
+                 disabled={loading}
+               />
+             </div>
+           </div>
+           <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
+             {loading ? "Logging in..." : "Log In"}
+           </Button>
+         </form>
       </CardContent>
       <CardFooter className="flex flex-wrap items-center justify-center gap-1 border-t border-border/40 p-4 text-center">
         <span className="text-[11px] text-muted-foreground">New to Moots?</span>

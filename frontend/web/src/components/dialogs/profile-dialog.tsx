@@ -101,7 +101,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="grid! p-8! gap-6! max-w-[420px] sm:max-w-[420px]! w-full rounded-3xl bg-background text-foreground border border-border select-none">
+      <DialogContent showCloseButton={false} className="grid! p-8! gap-6! max-w-[420px] sm:max-w-[420px]! w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] rounded-3xl bg-background text-foreground border border-border select-none">
         <DialogTitle className="text-xl font-semibold mb-6">Edit profile</DialogTitle>
         <DialogDescription className="sr-only">
           Update your display name, username, bio, and avatar.

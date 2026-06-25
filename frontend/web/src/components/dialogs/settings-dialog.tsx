@@ -120,7 +120,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex flex-col sm:flex-row p-0! gap-0! max-w-3xl sm:max-w-3xl! w-full h-[85vh] sm:h-[600px] overflow-hidden rounded-3xl bg-background text-foreground border border-border select-none">
+      <DialogContent showCloseButton={false} className="flex flex-col sm:flex-row p-0! gap-0! max-w-3xl sm:max-w-3xl! w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] h-[85vh] sm:h-[600px] overflow-hidden rounded-3xl bg-background text-foreground border border-border select-none">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your account preferences, notifications, theme personalization, privacy, and security settings.
@@ -330,54 +330,54 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             {/* ── ACCOUNT TAB ── */}
             {activeTab === "account" && (
               <div className="space-y-6">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground font-medium">Email Address</Label>
-                  <Input
-                    type="email"
-                    value={email}
-                    disabled
-                    className="h-9 border-border bg-muted/30 text-xs text-muted-foreground cursor-not-allowed"
-                  />
-                </div>
-
-                <form onSubmit={handleUpdatePassword} className="space-y-3 border-t border-border pt-4">
-                  <Label className="text-sm font-medium text-foreground">Change Password</Label>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="sec-pass" className="text-xs text-muted-foreground">New Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        id="sec-pass"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-9 h-9 border-border bg-background text-xs text-foreground"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="sec-conf-pass" className="text-xs text-muted-foreground">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        id="sec-conf-pass"
-                        type="password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="pl-9 h-9 border-border bg-background text-xs text-foreground"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="text-xs font-semibold h-9 px-4 mt-2" disabled={loading}>
-                    {loading ? "Updating..." : "Update Password"}
-                  </Button>
+                 <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/30 cursor-not-allowed">
+                   <Label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">Email Address</Label>
+                   <Input
+                     type="email"
+                     value={email}
+                     disabled
+                     className="w-full bg-transparent border-none p-0 h-6 text-sm text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden cursor-not-allowed"
+                   />
+                 </div>
+ 
+                 <form onSubmit={handleUpdatePassword} className="space-y-4 border-t border-border pt-4">
+                   <Label className="text-sm font-medium text-foreground">Change Password</Label>
+                   
+                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                     <Label htmlFor="sec-pass" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">New Password</Label>
+                     <div className="relative flex items-center mt-0.5">
+                       <Lock className="absolute left-0 size-4 text-muted-foreground" />
+                       <Input
+                         id="sec-pass"
+                         type="password"
+                         placeholder="••••••••"
+                         value={password}
+                         onChange={(e) => setPassword(e.target.value)}
+                         className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
+                         disabled={loading}
+                       />
+                     </div>
+                   </div>
+ 
+                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                     <Label htmlFor="sec-conf-pass" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">Confirm Password</Label>
+                     <div className="relative flex items-center mt-0.5">
+                       <Lock className="absolute left-0 size-4 text-muted-foreground" />
+                       <Input
+                         id="sec-conf-pass"
+                         type="password"
+                         placeholder="••••••••"
+                         value={confirmPassword}
+                         onChange={(e) => setConfirmPassword(e.target.value)}
+                         className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
+                         disabled={loading}
+                       />
+                     </div>
+                   </div>
+ 
+                   <Button type="submit" className="text-xs font-semibold h-9 px-4 mt-2" disabled={loading}>
+                     {loading ? "Updating..." : "Update Password"}
+                   </Button>
                 </form>
 
                 <div className="border-t border-border pt-4 space-y-2">

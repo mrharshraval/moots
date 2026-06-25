@@ -86,8 +86,8 @@ function VerifyContent() {
           </div>
         ) : (
           <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="email" className="text-xs font-semibold text-foreground">
+            <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+              <Label htmlFor="email" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
                 Email Address
               </Label>
               <Input
@@ -96,12 +96,12 @@ function VerifyContent() {
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
+                className="w-full bg-transparent border-none p-0 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
                 disabled={loading || !!emailParam}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="otp" className="text-xs font-semibold text-foreground">
+            <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+              <Label htmlFor="otp" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
                 One-Time Password (OTP)
               </Label>
               <Input
@@ -111,7 +111,7 @@ function VerifyContent() {
                 placeholder="123456"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                className="h-12 border-border bg-background text-center text-xl font-bold tracking-[8px] text-foreground focus:ring-1 focus:ring-primary"
+                className="w-full bg-transparent border-none p-0 h-7 text-center text-xl font-bold tracking-[8px] text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
                 disabled={loading}
               />
             </div>

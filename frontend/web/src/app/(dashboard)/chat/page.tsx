@@ -279,7 +279,7 @@ export default function ChatConfiguratorPage() {
   return (
     <div className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-background">
       <Dialog open={true} onOpenChange={handleOpenChange}>
-        <DialogContent showCloseButton={false} className="flex! flex-col! p-6! gap-4! max-w-[400px] sm:max-w-[400px]! w-full rounded-3xl bg-background border border-border select-none shadow-lg">
+        <DialogContent showCloseButton={false} className="flex! flex-col! p-6! gap-4! max-w-[400px] sm:max-w-[400px]! w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] rounded-3xl bg-background border border-border select-none shadow-lg">
           
           {dialogState === "selection" && (
             <>

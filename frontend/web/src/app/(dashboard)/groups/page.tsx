@@ -192,7 +192,7 @@ export default function GroupsPage() {
         </div>
 
         <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-          <DialogContent className="grid! max-w-[425px] sm:max-w-[425px]! w-full rounded-3xl bg-background border border-border select-none p-6">
+          <DialogContent className="grid! max-w-[425px] sm:max-w-[425px]! w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] rounded-3xl bg-background border border-border select-none p-6">
             <DialogHeader className="text-left">
               <DialogTitle className="text-base font-bold text-foreground">Create Community Group</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-1">
@@ -201,34 +201,43 @@ export default function GroupsPage() {
             </DialogHeader>
 
             <form onSubmit={handleCreateGroup} className="space-y-4 py-2">
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Group Name</label>
+              <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                <Label htmlFor="group-name" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                  Group Name
+                </Label>
                 <Input
+                  id="group-name"
                   required
                   placeholder="e.g. Anime Watch Party"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  className="h-9.5 text-xs bg-background border-border"
+                  className="w-full bg-transparent border-none p-0 h-6 text-xs text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Category</label>
+              <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                <Label htmlFor="group-cat" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                  Category
+                </Label>
                 <Input
+                  id="group-cat"
                   placeholder="e.g. Anime, Food, Hiking"
                   value={newGroupCat}
                   onChange={(e) => setNewGroupCat(e.target.value)}
-                  className="h-9.5 text-xs bg-background border-border"
+                  className="w-full bg-transparent border-none p-0 h-6 text-xs text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Description</label>
+              <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                <Label htmlFor="group-desc" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                  Description
+                </Label>
                 <Textarea
+                  id="group-desc"
                   placeholder="Tell people what this group is all about..."
                   value={newGroupDesc}
                   onChange={(e) => setNewGroupDesc(e.target.value)}
-                  className="text-xs bg-background border-border resize-none h-20"
+                  className="w-full bg-transparent border-none p-0 text-xs text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden resize-none h-20 mt-1"
                 />
               </div>
 
