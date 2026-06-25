@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -121,6 +121,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="flex! p-0! gap-0! max-w-3xl sm:max-w-3xl! w-full h-[600px] overflow-hidden rounded-3xl bg-background text-foreground border border-border select-none">
+        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogDescription className="sr-only">
+          Manage your account preferences, notifications, theme personalization, privacy, and security settings.
+        </DialogDescription>
         {/* Left Side: Sidebar */}
         <div className="w-52 md:w-56 bg-muted/20 p-4 border-r border-border flex flex-col gap-2 relative shrink-0">
           {/* Close button at top-left matching screenshot style */}

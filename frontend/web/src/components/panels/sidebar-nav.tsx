@@ -74,6 +74,11 @@ export function SidebarNav() {
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [profileOpen, setProfileOpen] = React.useState(false)
 
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const handleSidebarClick = (e: React.MouseEvent) => {
     if (state === "collapsed") {
       const target = e.target as HTMLElement
@@ -87,13 +92,14 @@ export function SidebarNav() {
   const user = session?.user;
   const isGuest = !user;
   const displayName = isGuest 
-    ? getOrInitializeNickname() 
+    ? (mounted ? getOrInitializeNickname() : "Guest User") 
     : (user.name || (user as any).username || user.email?.split("@")[0] || "User");
   const username = (user as any)?.username;
   const userSubtitle = isGuest 
     ? "Guest" 
     : (username ? (username.startsWith("@") ? username : `@${username}`) : (user.email || ""));
   const initials = user ? getUserInitials(user?.name, user?.email) : getUserInitials(displayName, null);
+
 
   const side = state === "collapsed" ? "right" : "top";
   const align = state === "collapsed" ? "end" : "start";

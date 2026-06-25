@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useSession } from "next-auth/react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,7 +99,10 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="grid! p-8! gap-6! max-w-[420px] sm:max-w-[420px]! w-full rounded-3xl bg-background text-foreground border border-border select-none">
-        <h2 className="text-xl font-semibold mb-6">Edit profile</h2>
+        <DialogTitle className="text-xl font-semibold mb-6">Edit profile</DialogTitle>
+        <DialogDescription className="sr-only">
+          Update your display name, username, bio, and avatar.
+        </DialogDescription>
 
         <form onSubmit={handleSaveProfile} className="space-y-6">
           {/* Circular Avatar with Camera overlay */}
