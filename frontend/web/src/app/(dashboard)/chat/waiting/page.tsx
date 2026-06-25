@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { useWebSocket } from "@/hooks/use-websocket"
 
+import { env } from "@/env"
+
 function MatchingQueueContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -42,7 +44,7 @@ function MatchingQueueContent() {
     }
   }, [])
 
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001"
+  const wsUrl = env.NEXT_PUBLIC_WS_URL
   useWebSocket(userId ? wsUrl : null, {
     shouldReconnect: true,
     reconnectAttempts: 3,

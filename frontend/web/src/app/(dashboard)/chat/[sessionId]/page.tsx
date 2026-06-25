@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { env } from "@/env"
 
 /* ── Types ── */
 interface Message {
@@ -182,7 +183,7 @@ export default function ChatSessionPage() {
     }
     setUserId(uId)
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001"
+    const wsUrl = env.NEXT_PUBLIC_WS_URL
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
@@ -365,7 +366,7 @@ export default function ChatSessionPage() {
     const targetInterests = saved ? saved.split(",").filter(Boolean) : ["gaming", "music", "movies"]
     setInterests(targetInterests)
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001"
+    const wsUrl = env.NEXT_PUBLIC_WS_URL
     const ws = new WebSocket(wsUrl)
     matchingWsRef.current = ws
 

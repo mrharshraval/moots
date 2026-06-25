@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 
-export default NextAuth(authConfig).auth;
+export const proxy = NextAuth(authConfig).auth;
 
 export const config = {
   // Protect all paths except auth APIs, static files, and public assets

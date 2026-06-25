@@ -42,7 +42,7 @@ Focuses on user management, database persistence, and external service integrati
 
 ---
 
-### B. WebSocket Backend (`backend/ws`)
+### B. WebSocket Backend (`backend/realtime`)
 
 Focuses on stateful real-time events, match matchmaking queues, and client connection registry.
 

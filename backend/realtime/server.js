@@ -1,5 +1,6 @@
 import { WebSocketServer } from "ws";
 import { PORT, ALLOWED_ORIGINS, STALE_CLEANUP_INTERVAL } from "./src/config.js";
+import { env } from "./src/env.js";
 import { registry } from "./src/registry.js";
 import { matchmakingService } from "./src/matchmaking.js";
 import { sessionService } from "./src/session.js";
@@ -19,7 +20,7 @@ wss.on("connection", (ws, req) => {
   const origin = req.headers.origin;
 
   // 1. Origin Verification (Security Standard to prevent Cross-Site WebSocket Hijacking - CSWSH)
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
       structuredLog("CONNECTION_REJECTED", "SYSTEM", {
         details: `Unauthorized origin: ${origin || "None"} (IP: ${clientIp})`,

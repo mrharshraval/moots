@@ -5,7 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { HelpCircle, Mail, ShieldAlert, FileText, Scale } from "lucide-react";
 
+import { env } from "@/env";
+
 export default function HelpCenterPage() {
+  const SUPPORT_EMAIL = env.NEXT_PUBLIC_SUPPORT_EMAIL;
+
   return (
     <div className="flex-1 space-y-6 p-8 pt-6 max-w-3xl mx-auto">
       <div className="flex items-center space-x-2">
@@ -75,8 +79,8 @@ export default function HelpCenterPage() {
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
               Need help resolving issues with your account or billing? Write to our support inbox.
             </p>
-            <a href="mailto:support@moots.in" className="text-xs font-semibold text-primary hover:underline">
-              support@moots.in
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs font-semibold text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>
           </CardContent>
         </Card>

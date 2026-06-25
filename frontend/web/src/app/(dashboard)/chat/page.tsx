@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { env } from "@/env"
 
 const POPULAR_TOPICS = [
   { id: "gaming", label: "Gaming" },
@@ -64,7 +65,7 @@ export default function ChatConfiguratorPage() {
       }, 1000)
 
       const userId = getUserId()
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001"
+      const wsUrl = env.NEXT_PUBLIC_WS_URL
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
@@ -171,7 +172,7 @@ export default function ChatConfiguratorPage() {
     }, 1000)
 
     const userId = getUserId()
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001"
+    const wsUrl = env.NEXT_PUBLIC_WS_URL
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 

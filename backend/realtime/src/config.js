@@ -1,11 +1,9 @@
-// Centralized configuration parameters
-export const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+import { env } from "./env.js";
 
-export const ALLOWED_ORIGINS = [
-  "https://www.moots.in",
-  "https://moots.in",
-  "https://ws.moots.in"
-];
+// Centralized configuration parameters
+export const PORT = env.PORT;
+
+export const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS;
 
 export const HEARTBEAT_INTERVAL = 20000; // 20 seconds to be safe on Render.com
 

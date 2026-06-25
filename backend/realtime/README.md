@@ -11,7 +11,7 @@ This service is optimized for deployment on Render.com and custom domain configu
 The server adopts a modular, service-based design to decouple connection logic, matchmaking state, active session lifetimes, and message routing.
 
 ```
-backend/ws/
+backend/websocket/
 ├── package.json         # Server dependencies (ws, zod)
 ├── server.js            # Entrypoint coordinating connection setups & cleanup tasks
 └── src/

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const res = await fetch("http://localhost:3002/api/auth/register", {
+    const backendUrl = env.BACKEND_API_URL;
+    const res = await fetch(`${backendUrl}/api/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,20 +1,19 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
+import { env } from "./src/config/env.js";
 import { PrismaClient } from "@prisma/client";
 import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 3002;
-const resend = new Resend(process.env.RESEND_API_KEY);
+const PORT = env.PORT;
+const resend = new Resend(env.RESEND_API_KEY);
+const EMAIL_FROM = env.EMAIL_FROM;
 
 // Setup Prisma client
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -78,7 +77,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     try {
       await resend.emails.send({
-        from: "Moots <noreply@moots.in>",
+        from: EMAIL_FROM,
         to: email,
         subject: "Verify your email for Moots",
         html: `

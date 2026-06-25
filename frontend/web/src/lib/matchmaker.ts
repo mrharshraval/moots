@@ -1,3 +1,5 @@
+import { env } from "@/env"
+
 // Shared in-memory matchmaking state, preserved across Next.js dev hot-reloads
 interface WaitingUser {
   userId: string
@@ -22,7 +24,7 @@ const store: MatchmakerStore = globalThis.__matchmaker || {
   sessions: {},
 }
 
-if (process.env.NODE_ENV !== "production") {
+if (env.NODE_ENV !== "production") {
   globalThis.__matchmaker = store
 }
 

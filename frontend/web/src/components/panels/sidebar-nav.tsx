@@ -45,6 +45,10 @@ import { getOrInitializeNickname } from "@/lib/nickname"
 import { SettingsDialog } from "@/components/dialogs/settings-dialog"
 import { ProfileDialog } from "@/components/dialogs/profile-dialog"
 
+import { env } from "@/env";
+
+const SUPPORT_EMAIL = env.NEXT_PUBLIC_SUPPORT_EMAIL;
+
 const NAV_ITEMS = [
   { id: "chats",         label: "Chats",         icon: MessageCircle,  href: "/chat" },
   { id: "notifications", label: "Notifications", icon: Bell,           href: "/notifications" },
@@ -233,7 +237,7 @@ export function SidebarNav() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="h-9 rounded-lg text-sm px-3 gap-3 cursor-pointer">
-                            <a href="mailto:support@moots.in" className="w-full flex items-center">
+                            <a href={`mailto:${SUPPORT_EMAIL}`} className="w-full flex items-center">
                               <span>Contact Support</span>
                             </a>
                           </DropdownMenuItem>
@@ -255,7 +259,7 @@ export function SidebarNav() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild className="h-9 rounded-lg text-sm px-3 gap-3 cursor-pointer">
-                            <a href="mailto:support@moots.in?subject=Report%20a%20Problem" className="w-full flex items-center">
+                            <a href={`mailto:${SUPPORT_EMAIL}?subject=Report%20a%20Problem`} className="w-full flex items-center">
                               <span>Report a Problem</span>
                             </a>
                           </DropdownMenuItem>
@@ -302,7 +306,7 @@ export function SidebarNav() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="h-9 rounded-lg text-sm px-3 gap-3 cursor-pointer">
-                            <a href="mailto:support@moots.in" className="w-full flex items-center">
+                            <a href={`mailto:${SUPPORT_EMAIL}`} className="w-full flex items-center">
                               <span>Contact Support</span>
                             </a>
                           </DropdownMenuItem>
@@ -324,7 +328,7 @@ export function SidebarNav() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild className="h-9 rounded-lg text-sm px-3 gap-3 cursor-pointer">
-                            <a href="mailto:support@moots.in?subject=Report%20a%20Problem" className="w-full flex items-center">
+                            <a href={`mailto:${SUPPORT_EMAIL}?subject=Report%20a%20Problem`} className="w-full flex items-center">
                               <span>Report a Problem</span>
                             </a>
                           </DropdownMenuItem>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { env } from "@/env";
 
 export async function PUT(req: Request) {
   try {
@@ -11,7 +12,8 @@ export async function PUT(req: Request) {
 
     const { username, name, bio, image } = await req.json();
 
-    const res = await fetch("http://localhost:3002/api/user/settings", {
+    const backendUrl = env.BACKEND_API_URL;
+    const res = await fetch(`${backendUrl}/api/user/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

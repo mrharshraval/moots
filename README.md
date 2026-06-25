@@ -28,7 +28,7 @@ The WebSocket server coordinates the real-time matching queue, monitors client h
 
 ## 2. Workspace Layout
 
-### Backend Service (`backend/ws`)
+### Backend Service (`backend/realtime`)
 - **`server.js`**: Server entrypoint managing WebSocket instantiation and connection handshakes.
 - **`src/config.js`**: Global configuration values (ports, allowed origins, timeouts).
 - **`src/types.js`**: Zod schema definitions validating inbound message payloads.
@@ -52,10 +52,10 @@ The WebSocket server coordinates the real-time matching queue, monitors client h
 
 To run the application locally on your developer machine:
 
-### A. Run the WebSocket Server (`backend/ws`)
+### A. Run the WebSocket Server (`backend/realtime`)
 1. Navigate to the server folder:
    ```bash
-   cd backend/ws
+   cd backend/realtime
    ```
 2. Install dependencies:
    ```bash
