@@ -101,6 +101,10 @@ function ChatPanel() {
   const updateSettings = useChatStore((state) => state.updateConversationSettings)
   const deleteChat = useChatStore((state) => state.deleteConversation)
   const isLoading = useChatStore((state) => state.isLoading)
+  const hasMore = useChatStore((state) => state.hasMore)
+  const nextCursor = useChatStore((state) => state.nextCursor)
+  const observerRef = React.useRef<IntersectionObserver | null>(null)
+  const loadMoreRef = React.useRef<HTMLDivElement>(null)
 
   // Hardcode userId for testing, normally this comes from auth session
   const USER_ID = "cm4y18w4x000008lc6p69g3yq"
@@ -109,8 +113,28 @@ function ChatPanel() {
     fetchConversations(USER_ID)
   }, [fetchConversations])
 
+  React.useEffect(() => {
+    if (isLoading || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextCursor) {
+          fetchConversations(USER_ID, nextCursor)
+        }
+      },
+      { threshold: 1.0 }
+    )
+
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current)
+    observerRef.current = observer
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect()
+    }
+  }, [isLoading, hasMore, nextCursor, fetchConversations])
+
   const filteredConversations = React.useMemo(() => {
-    let filtered = conversations
+    let filtered = conversations || []
     
     if (filter === "archived") {
       filtered = filtered.filter(c => c.isArchived)
@@ -125,7 +149,7 @@ function ChatPanel() {
       filtered = filtered.filter(c => 
         c.name?.toLowerCase().includes(q) || 
         c.participants.some(p => p.name?.toLowerCase().includes(q) || p.username?.toLowerCase().includes(q)) ||
-        c.latestMessage?.content.toLowerCase().includes(q)
+        c.lastMessagePreview?.toLowerCase().includes(q)
       )
     }
 
@@ -190,12 +214,12 @@ function ChatPanel() {
           ) : (
             filteredConversations.map(chat => {
               // Extract details for display
-              const displayName = chat.isGroup ? chat.name : (chat.participants.find(p => p.id !== USER_ID)?.name || "Unknown")
+              const displayName = chat.type === "GROUP" ? chat.name : (chat.participants.find(p => p.id !== USER_ID)?.name || "Unknown")
               const initials = displayName?.substring(0, 2).toUpperCase() || "??"
-              const displayTime = chat.latestMessage ? new Date(chat.latestMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "New"
-              const displayMessage = chat.status === "ENDED" 
+              const displayTime = chat.lastActivityAt ? new Date(chat.lastActivityAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "New"
+              const displayMessage = chat.status === "DELETED" 
                 ? "Conversation ended" 
-                : (chat.latestMessage?.content || "No messages yet.")
+                : (chat.lastMessagePreview || "No messages yet.")
 
               return (
               <div key={chat.id} className="relative group/chat">

@@ -14,6 +14,8 @@ export const authConfig = {
         token.username = (user as any).username;
         token.bio = (user as any).bio;
         token.createdAt = (user as any).createdAt;
+        // Store backend-issued JWT for forwarding to protected API/WS
+        token.accessToken = (user as any).accessToken ?? token.accessToken;
       }
       if (trigger === "update" && session) {
         if (session.user) {
@@ -39,6 +41,8 @@ export const authConfig = {
         (session.user as any).username = token.username as string;
         (session.user as any).bio = token.bio as string;
         (session.user as any).createdAt = token.createdAt as string;
+        // Surface backend accessToken on the session (used by client for WS auth)
+        (session as any).accessToken = token.accessToken as string | null;
       }
       return session;
     },

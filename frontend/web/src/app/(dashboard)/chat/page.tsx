@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { getOrInitializeNickname } from "@/lib/nickname"
 import { useSession } from "next-auth/react"
+import { getWsAccessToken } from "@/lib/ws-token"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
@@ -56,7 +57,7 @@ export default function ChatConfiguratorPage() {
       if (saved) {
         setInterests(targetInterests)
       }
-      
+
       setDialogState("matching")
       setSeconds(0)
 
@@ -65,64 +66,72 @@ export default function ChatConfiguratorPage() {
         setSeconds((prev) => prev + 1)
       }, 1000)
 
-      const userId = getUserId()
       const requestId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`
-      const wsUrl = `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
       logger.info(`WebSocket: Connecting to Matchmaker (startMatching=true)`, {
         requestId,
-        userId,
         action: "matchmaking-connect"
       })
 
-      const ws = new WebSocket(wsUrl)
-      wsRef.current = ws
+      // Inner async function — useEffect callbacks cannot themselves be async
+      const connect = async () => {
+        // Fetch backend JWT — required by the realtime server for authentication
+        const accessToken = await getWsAccessToken()
+        const wsUrl = accessToken
+          ? `${env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(accessToken)}&requestId=${requestId}`
+          : `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
-      ws.onopen = () => {
-        logger.info(`WebSocket: Connected to Matchmaker`, { requestId, userId })
-        ws.send(
-          JSON.stringify({
-            type: "join-queue",
-            payload: {
-              userId,
-              nickname: getOrInitializeNickname(),
-              username: session?.user?.name || (session?.user as any)?.username || undefined,
-              interests: targetInterests,
-              lang: "en",
-              country: "global",
-            },
-          })
-        )
-      }
+        const ws = new WebSocket(wsUrl)
+        wsRef.current = ws
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          const { type, payload } = data
+        ws.onopen = () => {
+          logger.info(`WebSocket: Connected to Matchmaker`, { requestId })
+          ws.send(
+            JSON.stringify({
+              type: "join-queue",
+              payload: {
+                nickname: getOrInitializeNickname(),
+                username: session?.user?.name || (session?.user as any)?.username || undefined,
+                interests: targetInterests,
+                lang: "en",
+                country: "global",
+              },
+            })
+          )
+        }
 
-          logger.info(`WebSocket Message: Received ${type}`, { requestId, userId, eventType: type })
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            const { type, payload } = data
 
-          if (type === "match-found" && payload.sessionId) {
-            logger.info(`WebSocket: Match found! Session ID: ${payload.sessionId}`, { requestId, userId, sessionId: payload.sessionId })
-            if (timerRef.current) clearInterval(timerRef.current)
-            ws.close()
-            
-            setDialogState("matched")
-            setTimeout(() => {
-              router.push(`/chat/${payload.sessionId}`)
-            }, 1200)
+            logger.info(`WebSocket Message: Received ${type}`, { requestId, eventType: type })
+
+            if (type === "match-found" && payload.sessionId) {
+              logger.info(`WebSocket: Match found! Session ID: ${payload.sessionId}`, { requestId, sessionId: payload.sessionId })
+              if (timerRef.current) clearInterval(timerRef.current)
+              ws.close()
+
+              setDialogState("matched")
+              setTimeout(() => {
+                router.push(`/chat/${payload.sessionId}`)
+              }, 1200)
+            }
+          } catch (e) {
+            logger.error("Matchmaking WS error parsing message:", { requestId, errorMessage: (e as Error).message })
           }
-        } catch (e) {
-          logger.error("Matchmaking WS error parsing message:", { requestId, userId, errorMessage: (e as Error).message })
+        }
+
+        ws.onerror = () => {
+          logger.error("WS connection error", { requestId, errorCode: "WS_ERROR" })
         }
       }
 
-      ws.onerror = (e) => {
-        logger.error("WS connection error", { requestId, userId, errorCode: "WS_ERROR" })
-      }
+      connect()
     }
   }, [])
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getUserId = () => {
     if (typeof window === "undefined") return ""
     let userId = sessionStorage.getItem("moots_userId")
@@ -174,7 +183,7 @@ export default function ChatConfiguratorPage() {
     setShowCustomInput(false)
   }
 
-  const handleStartMatching = () => {
+  const handleStartMatching = async () => {
     sessionStorage.setItem("moots_interests", interests.join(","))
     setDialogState("matching")
     setSeconds(0)
@@ -184,26 +193,28 @@ export default function ChatConfiguratorPage() {
       setSeconds((prev) => prev + 1)
     }, 1000)
 
-    const userId = getUserId()
     const requestId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`
-    const wsUrl = `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
     logger.info(`WebSocket: Connecting to Matchmaker (handleStartMatching)`, {
       requestId,
-      userId,
       action: "matchmaking-connect"
     })
+
+    // Fetch backend JWT — required by the realtime server for authentication
+    const accessToken = await getWsAccessToken()
+    const wsUrl = accessToken
+      ? `${env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(accessToken)}&requestId=${requestId}`
+      : `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
-      logger.info(`WebSocket: Connected to Matchmaker (handleStartMatching)`, { requestId, userId })
+      logger.info(`WebSocket: Connected to Matchmaker (handleStartMatching)`, { requestId })
       ws.send(
         JSON.stringify({
           type: "join-queue",
           payload: {
-            userId,
             nickname: getOrInitializeNickname(),
             username: session?.user?.name || (session?.user as any)?.username || undefined,
             interests,

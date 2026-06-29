@@ -1,0 +1,1072 @@
+# Moots — Unified Backend Platform Audit
+
+> **Scope**: `backend/api` (REST + persistence) and `backend/realtime` (WebSocket) — every file, every component.
+> **Standard**: Platform-grade engineering as used in large-scale distributed systems.
+> **Goal**: Two independent services that operate as one cohesive, production-ready platform.
+
+---
+
+## Part I — Current State Snapshot
+
+### backend/api (REST Service)
+
+| Dimension | Current State |
+|---|---|
+| Language | TypeScript (strict mode — but bypassed with `any`) |
+| Framework | Express 4 |
+| Database | PostgreSQL via Prisma + pg Pool |
+| Auth | ❌ None — no middleware, no token |
+| Domains | auth, users, conversations, connections |
+| Validation | ✅ Zod on all routes |
+| Logging | Custom structured logger (should be pino) |
+| Error handling | ✅ Global error handler + AppError hierarchy |
+| Request tracing | ✅ AsyncLocalStorage + requestId |
+| Rate limiting | ❌ None |
+| Tests | ❌ Zero |
+| Real-time | ❌ Absent entirely |
+| Messages domain | ❌ Absent entirely |
+| DI | ❌ `new X()` everywhere |
+
+### backend/realtime (WebSocket Service)
+
+| Dimension | Current State |
+|---|---|
+| Language | **Plain JavaScript** (no TypeScript) |
+| Library | `ws` (raw WebSocket) |
+| Auth | ❌ None — `userId` trusted from message payload |
+| State | **In-memory Maps only** (lost on restart) |
+| DB access | ❌ None — completely disconnected from any database |
+| Persistence | ❌ Messages live only in `session.messages[]` |
+| Horizontal scale | ❌ Impossible — no Redis, no shared state |
+| Rate limiting | ❌ None |
+| Tests | ❌ Zero |
+| Zod version | `^3.23.11` (API uses `^4.4.3` — diverged) |
+| TypeScript | ❌ None |
+| Message IDs | `Date.now().toString()` — collision-prone |
+| Timestamps | `toLocaleTimeString()` — not ISO-8601 |
+| Heartbeat | ✅ Ping/pong every 20s |
+| Graceful shutdown | ✅ SIGTERM/SIGINT handled |
+| Origin check | ⚠️ Production only — development is wide open |
+
+---
+
+## Part II — Architecture Assessment
+
+### The Fundamental Problem: Two Disconnected Services
+
+The API and realtime service have **zero connection** to each other. They do not share a database, do not communicate via events, do not share a JWT secret, and do not share type definitions. They are not a platform — they are two separate applications that happen to serve the same product.
+
+```
+Current (broken) architecture:
+
+Client ──→ backend/api        (REST, Postgres, TypeScript, auth-free)
+Client ──→ backend/realtime   (WS,   in-memory,  JavaScript, auth-free)
+            ↑
+            No connection between them
+```
+
+```
+Target architecture:
+
+Client ──→ backend/api        (REST, Postgres, business logic, auth authority)
+               │
+               │ publishes domain events
+               ↓
+           Redis Pub/Sub
+               │
+               │ consumes events, delivers to connected clients
+               ↓
+Client ←── backend/realtime   (WS, delivery only, auth via JWT from API)
+```
+
+### Service Responsibility Boundary (Final)
+
+This is the single source of truth for what each service owns.
+
+| Responsibility | Owner | Notes |
+|---|---|---|
+| User registration / login | API | Issues JWT |
+| JWT issuance and verification | API | Realtime verifies, API issues |
+| Session management | API | Persistent, in Postgres |
+| User profile management | API | |
+| Connection requests / acceptance | API | Persists in Postgres |
+| Conversation creation | API | |
+| Message persistence | API | Writes to `Message` table |
+| Identity reveal state machine | API | Persists `IdentityState` on `Participant` |
+| Policy enforcement | API | `PolicyService.assertCapability()` |
+| Business rule validation | API | All business logic |
+| Real-time message delivery | Realtime | Receives via Redis, delivers to WS clients |
+| Presence tracking (online/offline) | Realtime | Tracks connected clients |
+| Matchmaking queue | Realtime | In-memory queue + interest scoring |
+| Typing indicators | Realtime | In-memory, ephemeral |
+| Read receipt delivery | Realtime | Delivery only; persistence in API |
+| Room management | Realtime | Maps conversation IDs to WS client sets |
+| Reconnection grace period | Realtime | Client reconnect within window |
+| Heartbeat / connection health | Realtime | Ping/pong |
+
+**The critical rule**: The realtime service **never** writes to the database. The API **never** pushes to WebSocket clients directly. Communication flows through Redis Pub/Sub.
+
+---
+
+## Part III — Full Findings Register
+
+### CRITICAL — Realtime Service
+
+---
+
+#### RT-01 · No Authentication — `userId` Trusted from Message Payload
+
+**Description**: Every realtime handler reads `userId` from `payload.userId` — a value sent by the client. There is no token verification on the WebSocket handshake or on any subsequent message.
+
+**Root cause**: Authentication is absent. There is no `JWT_SECRET` in the realtime service.
+
+**Impact**: Any client can impersonate any user by sending `{ userId: "any_user_id" }`. A malicious client can read another user's messages, inject messages as any user, manipulate matchmaking state, and reveal another user's identity.
+
+**This is the single most critical security vulnerability in the platform.**
+
+**Recommendation**:
+- On WS handshake: client sends JWT as a query parameter or `Authorization` header.
+- Realtime service verifies the JWT using the shared `JWT_SECRET`.
+- `userId` is extracted from the verified token — never from the payload.
+- Any message that sends `userId` in its payload has that field stripped and ignored.
+
+**Priority**: P0.
+
+---
+
+#### RT-02 · Zero Database Persistence — Messages Lost on Restart
+
+**Description**: All messages, sessions, and matchmaking state live exclusively in `session.messages[]`, `this.sessions`, and `this.waitingUsers` — plain JavaScript `Map` instances in process memory.
+
+**Root cause**: Realtime service has no database connection and no Redis.
+
+**Impact**:
+- Every message is lost when the process restarts.
+- A deploy wipes the entire chat history of every active conversation.
+- A crash loses all in-flight messages.
+- Cannot run more than one realtime instance.
+
+**Recommendation**: Messages are persisted by the API (not the realtime service). Flow:
+1. Client sends `send-message` via WS.
+2. Realtime service calls `POST /internal/messages` on the API (or publishes an event for the API to persist).
+3. API persists to Postgres, then publishes `message.sent` to Redis.
+4. Realtime service delivers the event to connected clients.
+
+**Priority**: P0.
+
+---
+
+#### RT-03 · No Horizontal Scalability — In-Memory State
+
+**Description**: `ConnectionRegistry`, `SessionService`, and `MatchmakingService` all use in-memory `Map` instances. A second realtime instance has no access to any other instance's state.
+
+**Root cause**: No Redis, no shared state store.
+
+**Impact**: Cannot deploy more than one realtime instance. A single WebSocket server is a single point of failure and a horizontal scale ceiling.
+
+**Recommendation**:
+- Move session state to Redis (with TTL matching the session lifecycle).
+- Move matchmaking queue to Redis sorted set (for FIFO ordering and atomic `ZPOPMIN`).
+- Move connection tracking to a hybrid: local `Map` for the current node's connections + Redis for cross-node presence.
+- Add `@socket.io/redis-adapter` if migrating to Socket.io, or implement pub/sub manually if staying on `ws`.
+
+**Priority**: P0.
+
+---
+
+#### RT-04 · Plain JavaScript — No TypeScript
+
+**Description**: The entire realtime service is untyped JavaScript. The API is TypeScript. There are no shared type definitions between the two services.
+
+**Root cause**: Started as a prototype, not converted.
+
+**Impact**:
+- No compile-time safety for event payloads, session shapes, or connection metadata.
+- Bugs that TypeScript would catch at compile time become runtime errors in production.
+- No shared contracts between services — types diverge silently.
+- `structuredLog` accepts untyped `metadata` object.
+- `session.messages[]` is untyped; `msg.reactions` is mutated in place.
+
+**Recommendation**: Migrate realtime to TypeScript. Create a shared `packages/contracts` workspace package that both services import for event types and payload schemas.
+
+**Priority**: P1.
+
+---
+
+#### RT-05 · Message IDs Use `Date.now().toString()`
+
+**Description**: `const msg = { id: Date.now().toString(), ... }` in `messaging.js:232`.
+
+**Root cause**: Convenience.
+
+**Impact**:
+- Millisecond timestamp IDs collide when two messages are sent within the same millisecond in the same session.
+- IDs are sequential and predictable — clients can infer message volume and timing.
+- Incompatible with the API's CUID2 ID standard.
+
+**Recommendation**: `crypto.randomUUID()` for ephemeral IDs; CUID2 for persisted messages (assigned by API).
+
+**Priority**: P1.
+
+---
+
+#### RT-06 · Message Timestamps Not ISO-8601
+
+**Description**: `time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })` — locale-formatted, human-readable string stored as the message timestamp.
+
+**Root cause**: Frontend convenience.
+
+**Impact**:
+- Non-parseable by any standard date library.
+- Locale-dependent — different server locales produce different output.
+- Loses seconds and milliseconds — cannot order messages accurately.
+- Incompatible with the API's ISO-8601 timestamp standard.
+
+**Recommendation**: Store `sentAt: new Date().toISOString()`. Let the frontend format for display.
+
+**Priority**: P1.
+
+---
+
+#### RT-07 · Session State Is Authoritative for Messages — Business Logic in Realtime
+
+**Description**: `session.messages[]` is the only record of messages. `edit-message` modifies `msg.content` directly on the session object. `send-reaction` mutates `msg.reactions` in place. `read-messages` mutates `m.seen` in place.
+
+**Root cause**: No API integration.
+
+**Impact**: The realtime service is acting as both a delivery system and a database. This violates the service responsibility boundary. Business logic (message ownership check in `edit-message: msg.senderId === userId`) lives in the delivery layer.
+
+**Recommendation**: All mutations go through the API:
+- `edit-message` → `PATCH /api/v1/messages/:id` (API validates ownership, persists, publishes event).
+- `send-reaction` → `POST /api/v1/messages/:id/reactions` (API persists, publishes event).
+- `read-messages` → `PATCH /api/v1/conversations/:id/read` (API updates `unreadCount`, publishes event).
+
+**Priority**: P1.
+
+---
+
+#### RT-08 · `connection:request`, `connection:accepted`, Identity Reveal — Business Logic Proxied Without Validation
+
+**Description**: The `connection:request`, `connection:accepted`, `connection:removed`, `participant:identity-revealed`, and `participant:identity-hidden` handlers simply forward the event to the partner WebSocket without any validation, persistence, or policy check:
+
+```javascript
+case "connection:request":
+case "connection:accepted":
+  // No validation. No DB write. No policy check.
+  partnerConn.ws.send(JSON.stringify({ type, payload }));
+  break;
+```
+
+**Root cause**: No API integration.
+
+**Impact**:
+- Connection requests are never persisted in Postgres — they exist only in the browser.
+- Identity reveals are never recorded — the `IdentityState` on `Participant` is never updated.
+- A client can emit `participant:identity-revealed` with arbitrary `name`/`username`/`image` fields — no validation.
+- Refreshing the page loses all connection and identity state.
+
+**Recommendation**: These events must flow through the API:
+- `connection:request` → `POST /api/v1/connections` → API fires `connection.requested` event → realtime delivers notification.
+- `participant:identity-revealed` → `POST /api/v1/conversations/:id/reveal` → API validates policy, updates `IdentityState`, fires event → realtime delivers.
+
+**Priority**: P0 — Privacy and data integrity violation.
+
+---
+
+#### RT-09 · Zod Version Mismatch Between Services
+
+**Description**: `backend/realtime` depends on `zod ^3.23.11`. `backend/api` depends on `zod ^4.4.3`. These are different major versions with different APIs.
+
+**Root cause**: Services developed independently.
+
+**Impact**: Any shared validation schemas in a `packages/contracts` package would need to target one version. Migration to Zod v4 has breaking changes. The inconsistency prevents shared contracts.
+
+**Recommendation**: Align both services on `zod ^4.x`. Upgrade realtime to match API.
+
+**Priority**: P1.
+
+---
+
+#### RT-10 · `sessionId` Claimed by Client Without Verification
+
+**Description**: `join-chat` handler accepts a `sessionId` from the client payload and looks it up in `this.sessions.get(sessionId)`. Any client that knows (or guesses) a session ID can join that session.
+
+**Root cause**: No session ownership verification.
+
+**Impact**: Session hijacking — a third party who learns a `sessionId` can insert themselves as a participant in any conversation.
+
+**Recommendation**: The API issues session tokens that are cryptographically tied to the user. The realtime service verifies the token before allowing `join-chat`. The `sessionId` maps to a `conversationId` + `userId` pair that the JWT must authorize.
+
+**Priority**: P0.
+
+---
+
+#### RT-11 · `console.error` Used Directly in `messaging.js`
+
+**Description**: `console.error(`Received message for unregistered connection: ${connectionId}`)` — direct `console` call bypassing the structured logger.
+
+**Priority**: P3.
+
+---
+
+#### RT-12 · `Math.random()` Fallback for `requestId`
+
+**Description**: `const requestId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 11)` — the fallback uses `Math.random()` which is not CSPRNG.
+
+**Priority**: P2 — Node 18+ always has `crypto.randomUUID()`, remove the fallback.
+
+---
+
+#### RT-13 · Origin Check Disabled in Development
+
+**Description**: Origin verification is wrapped in `if (env.NODE_ENV === "production")`. In development, any origin can connect.
+
+**Impact**: Developers connecting from arbitrary local pages, browser extensions, or tools can access the WS server without any origin check. While lower risk in dev, it normalises ignoring security controls.
+
+**Recommendation**: Keep origin check active in all environments. Expand `ALLOWED_ORIGINS` to include localhost origins.
+
+**Priority**: P2.
+
+---
+
+#### RT-14 · Health Endpoint References `wss` Before Declaration
+
+**Description**: In `server.js`, the HTTP handler on line 24 references `wss.clients.size`, but `wss` is declared on line 34. This works due to `var`-like hoisting of `const` at module level, but it is a fragile ordering dependency.
+
+**Priority**: P3.
+
+---
+
+#### RT-15 · `SessionService.joinSession` Creates Session on Demand
+
+**Description**: `joinSession` has a fallback: if the session doesn't exist, it creates one on demand. This means any client with an arbitrary `sessionId` gets a new session created for them.
+
+**Root cause**: Defensive fallback.
+
+**Impact**: Combined with RT-10, this means a client can create arbitrary sessions by sending any `sessionId` in `join-chat`.
+
+**Recommendation**: Remove the on-demand creation fallback. Sessions must be created only via the API's `match-found` flow. Return an error if the session doesn't exist.
+
+**Priority**: P1.
+
+---
+
+#### RT-16 · `handleDisconnect` O(n) Linear Scan
+
+**Description**: `handleDisconnect` iterates over all sessions and all their active connections to find which session a given `connectionId` belongs to. With many concurrent sessions, this is O(sessions × participants).
+
+**Recommendation**: Maintain a reverse index: `connectionId → sessionId` in the registry for O(1) lookup.
+
+**Priority**: P2.
+
+---
+
+#### RT-17 · No Rate Limiting on WebSocket Messages
+
+**Description**: A single connected client can send unlimited messages per second. No throttling or per-connection rate limiting exists.
+
+**Impact**: A malicious or buggy client can flood the server with `send-message` or `join-queue` events, consuming CPU and memory unboundedly.
+
+**Recommendation**: Implement per-connection token bucket rate limiting. 60 messages/minute general limit; 5 `join-queue` events/minute per connection.
+
+**Priority**: P1.
+
+---
+
+#### RT-18 · No Metrics or Observability
+
+**Description**: No Prometheus metrics, no OpenTelemetry tracing, no dashboard-ready output. The only observability is structured logs.
+
+**Recommendation**: Add `prom-client` metrics:
+- `ws_connections_active` (gauge).
+- `ws_messages_total` (counter, by type).
+- `ws_matchmaking_queue_size` (gauge).
+- `ws_session_duration_seconds` (histogram).
+- `ws_message_delivery_duration_ms` (histogram).
+
+**Priority**: P2.
+
+---
+
+#### RT-19 · No Tests
+
+**Description**: Zero tests exist. No unit tests for matchmaking algorithm, session management, or message routing. No integration tests.
+
+**Priority**: P1.
+
+---
+
+#### RT-20 · `structuredLog` Exported from `messaging.js`
+
+**Description**: `structuredLog` is a utility function defined in and exported from `messaging.js`. It is imported by `server.js`. This is a circular concern — the message router shouldn't own the logging utility.
+
+**Recommendation**: Move `structuredLog` to `src/lib/logger.js` alongside the `logger` instance.
+
+**Priority**: P3.
+
+---
+
+### CRITICAL — API Service (summary, detail in previous audit)
+
+| ID | Finding |
+|---|---|
+| F-01 | No authentication middleware |
+| F-02 | `userId` from request body — systemic IDOR |
+| F-03 | Login issues no token |
+| F-04 | No rate limiting |
+| F-05 | CORS fully open |
+| F-06 | Non-atomic multi-step writes |
+| F-07 | OTP uses `Math.random()` |
+| F-13 | `Message.senderId → User` breaks anonymous identity |
+
+---
+
+## Part IV — API ↔ Realtime Communication Architecture
+
+### Communication Pattern: Redis Pub/Sub
+
+```
+[Client]                [API]                  [Redis]           [Realtime]
+   │                      │                       │                   │
+   │─── POST /messages ──→│                       │                   │
+   │                      │── persist to DB ──────│                   │
+   │                      │── PUBLISH msg.sent ──→│                   │
+   │                      │                       │── SUBSCRIBE ──────│
+   │                      │                       │     event ────────→│
+   │                      │                       │                   │── ws.send() ──→[Client]
+   │                      │                       │                   │── ws.send() ──→[Partner]
+```
+
+### Channel Naming Convention
+
+```
+# Format: moots:{domain}:{event_type}
+moots:messages:sent
+moots:messages:deleted
+moots:messages:edited
+moots:reactions:updated
+moots:conversations:created
+moots:participants:typing
+moots:participants:read
+moots:identity:reveal_initiated
+moots:identity:reveal_confirmed
+moots:connections:requested
+moots:connections:accepted
+moots:presence:online
+moots:presence:offline
+moots:matchmaking:matched
+```
+
+### Redis Event Envelope
+
+```typescript
+// packages/contracts/src/events.ts (shared package)
+
+interface PlatformEvent<T> {
+  eventId:       string;       // CUID2 — unique event ID for deduplication
+  eventType:     string;       // 'messages.sent'
+  version:       1;            // schema version — increment on breaking changes
+  occurredAt:    string;       // ISO-8601
+  conversationId?: string;     // routing hint for the realtime service
+  userId?:       string;       // target user for direct delivery
+  payload:       T;
+}
+```
+
+### Internal API Endpoints (Realtime → API)
+
+When the realtime service needs to trigger business logic (e.g., persist a message), it calls internal API endpoints. These are not public-facing and require an `X-Internal-Service-Key` header.
+
+```
+POST /internal/v1/messages          # persist a sent message
+POST /internal/v1/conversations/:id/read   # mark messages as read
+POST /internal/v1/connections        # create connection request
+PATCH /internal/v1/conversations/:id/reveal # initiate identity reveal
+```
+
+Secured by a shared `INTERNAL_SERVICE_KEY` (rotating secret, not exposed publicly).
+
+**Alternative**: The realtime service publishes a Redis command event, the API consumes it, persists, and re-publishes the result event. This keeps the API as the sole HTTP consumer of Postgres, avoiding any HTTP call chain.
+
+### Authentication Propagation
+
+```
+1. Client authenticates with API → receives JWT (access + refresh)
+2. Client opens WS connection: ws://realtime.moots.in?token=<JWT>
+3. Realtime service verifies JWT using shared JWT_SECRET
+4. userId extracted from token claims — never from message payload
+5. userId stored in ConnectionRegistry for the lifetime of the connection
+6. All subsequent messages use registry.get(connectionId).userId
+```
+
+### Request Correlation Across Services
+
+```typescript
+// Every platform event carries a correlationId
+interface PlatformEvent<T> {
+  correlationId: string;  // requestId from the originating HTTP request
+  // ...
+}
+
+// Realtime log entries include correlationId when processing events
+logger.info('Delivering message event', {
+  correlationId: event.correlationId,
+  eventId: event.eventId,
+  conversationId: event.conversationId,
+});
+```
+
+This enables end-to-end tracing: a message send request in the API can be traced through Redis delivery to the WS push.
+
+---
+
+## Part V — Shared Contracts Package
+
+Both services must share type definitions and validation schemas. This requires a workspace package.
+
+```
+backend/
+├── api/
+├── realtime/
+└── packages/
+    └── contracts/
+        ├── package.json
+        ├── tsconfig.json
+        └── src/
+            ├── events.ts          # Platform event types and envelopes
+            ├── ws-events.ts       # WebSocket client↔server event types
+            ├── schemas.ts         # Shared Zod schemas (aligned to zod v4)
+            └── index.ts
+```
+
+```typescript
+// packages/contracts/src/ws-events.ts
+
+// Client → Server (inbound)
+export type ClientToServerEvents = {
+  'join-queue':    JoinQueuePayload;
+  'cancel-queue':  CancelQueuePayload;
+  'send-message':  SendMessagePayload;  // realtime delivers; API persists
+  'typing':        TypingPayload;
+  'read':          ReadPayload;
+};
+
+// Server → Client (outbound)
+export type ServerToClientEvents = {
+  'matched':             MatchedPayload;
+  'waiting':             {};
+  'message.sent':        MessageSentPayload;
+  'message.edited':      MessageEditedPayload;
+  'message.deleted':     MessageDeletedPayload;
+  'reaction.updated':    ReactionUpdatedPayload;
+  'partner.typing':      TypingPayload;
+  'partner.read':        ReadPayload;
+  'partner.disconnected': PresencePayload;
+  'partner.reconnected':  PresencePayload;
+  'identity.reveal_initiated': RevealInitiatedPayload;
+  'identity.reveal_confirmed': RevealConfirmedPayload;
+  'connection.requested': ConnectionRequestedPayload;
+  'connection.accepted':  ConnectionAcceptedPayload;
+  'error':               ErrorPayload;
+};
+```
+
+---
+
+## Part VI — Database Changes Required
+
+See the full schema migration sequence from the platform governance plan. Additions specific to this unified review:
+
+### Session-to-Conversation Mapping
+
+The realtime `sessionId` must map to a `conversationId` in Postgres. The current `session-${uuid}` prefix approach must be replaced:
+
+- When the API creates a conversation (on `connection.accepted` event), it stores the `conversationId`.
+- The matchmaking `match-found` event payload includes `conversationId` (not `sessionId`).
+- The realtime service uses `conversationId` as the room key.
+- All Redis pub/sub channels use `conversationId` as the routing key.
+
+### Remove Session State from Realtime
+
+The following are removed from realtime in-memory state and become API/DB responsibility:
+- `session.messages[]` → `Message` table in Postgres.
+- `session.users[]` → `Participant` table in Postgres.
+- `session.nicknames{}` / `session.usernames{}` → `Participant.persona` JSON field.
+- Read receipts → `Participant.unreadCount` + `Message.seenAt`.
+
+What remains in realtime in-memory state (ephemeral by nature):
+- `ConnectionRegistry` — active WS connections on this node.
+- Matchmaking queue — users currently waiting.
+- Typing status — per-session, ephemeral.
+- Reconnect grace period timers.
+
+---
+
+## Part VII — Realtime Service Target Architecture
+
+```
+backend/realtime/
+├── package.json           # TypeScript, ws, ioredis, zod v4, prom-client
+├── tsconfig.json
+└── src/
+    ├── server.ts           # HTTP server + WS server bootstrap
+    ├── config/
+    │   └── index.ts        # Typed domain configs
+    ├── auth/
+    │   └── jwt.verifier.ts # JWT verification (shared secret with API)
+    ├── registry/
+    │   └── connection.registry.ts  # In-memory WS connection tracking
+    ├── gateways/
+    │   ├── chat.gateway.ts         # Message delivery, typing, read receipts
+    │   ├── matchmaking.gateway.ts  # Queue join/cancel, match delivery
+    │   └── presence.gateway.ts     # Online/offline, lastSeen
+    ├── services/
+    │   ├── matchmaking.service.ts  # Scoring algorithm (pure, testable)
+    │   ├── session.service.ts      # Grace period timers, reconnect
+    │   └── room.service.ts         # conversationId → connection set
+    ├── redis/
+    │   ├── redis.client.ts         # ioredis connection
+    │   ├── publisher.ts            # Outbound event publishing
+    │   └── subscriber.ts           # Inbound event subscription + routing
+    ├── handlers/
+    │   └── message.handler.ts      # Routes inbound WS events to gateways
+    ├── middleware/
+    │   └── rate-limit.ts           # Per-connection token bucket
+    ├── contracts/                  # Re-exported from packages/contracts
+    └── lib/
+        ├── logger.ts               # pino (aligned with API)
+        └── metrics.ts              # prom-client
+```
+
+---
+
+## Part VIII — Refactoring Roadmap
+
+### Phase 1 — Critical Security — Week 1
+*(unchanged — security fixes can't wait)*
+
+**API:**
+- P1.1 JWT middleware + `req.user` type augmentation — include `actorId` in token claims
+- P1.2 Remove `userId` from all request DTOs
+- P1.3 CORS whitelist
+- P1.4 Rate limiting
+- P1.5 Fix OTP CSPRNG
+- P1.6 Transactions on multi-step writes
+
+**Realtime:**
+- P1.7 JWT verification on WS handshake
+- P1.8 Extract `actorId` from verified token — strip from all payloads
+- P1.9 Block session-create-on-demand fallback in `joinSession`
+- P1.10 Replace `Date.now()` message IDs with `crypto.randomUUID()`
+- P1.11 Replace `toLocaleTimeString()` timestamps with ISO-8601
+
+**Verification**: Same as before, plus — valid `actorId` tokens accepted on WS handshake, random strings rejected.
+
+---
+
+### Phase 2 — Core Infrastructure — Week 2
+*(unchanged)*
+
+**API:**
+- P2.1 pino logger
+- P2.2 Zod env validation
+- P2.3 DI container
+- P2.4 Repository base interface + TransactionClient support
+- P2.5 Email abstraction layer
+
+**Realtime:**
+- P2.6 Migrate to TypeScript
+- P2.7 Align Zod to v4
+- P2.8 Create `packages/contracts` — add `TokenClaims` type with `actorId` field here
+- P2.9 pino logger
+- P2.10 Move `structuredLog` into `src/lib/logger.ts`
+- P2.11 Add `prom-client` metrics
+- P2.12 Add reverse index in `ConnectionRegistry`
+
+---
+
+### Phase 3 — Domain Refactoring + Actor Abstraction — Weeks 3–4
+
+**API — existing items:**
+- P3.1 REST endpoint renames and HTTP method corrections
+- P3.2 Build messages domain (persist, cursor paginate, soft delete)
+- P3.3 Build policy domain (Capability enum, PolicyService) — add GUEST_POLICY preset here
+- P3.4 Build identity domain (IdentityState state machine, Persona, MessageSerializer) (Note: Identity domain will eventually become its own bounded context housing actor, persona, reveal, guest-session, device, and presence logic)
+- P3.6 Domain Events: EventBus + Redis publisher on every mutating operation
+- P3.7 Internal endpoints (`/internal/v1/*`) secured by service key
+
+**API — new: Actor & GuestSession domain:**
+- P3.5a Actor and GuestSession table migration
+```sql
+CREATE TYPE "ActorType" AS ENUM ('USER', 'GUEST', 'BOT', 'SUPPORT', 'AI');
+
+CREATE TABLE "GuestSession" (
+  "id"          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "guestToken"  TEXT NOT NULL UNIQUE,
+  "deviceId"    TEXT NOT NULL,
+  "expiresAt"   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
+  "createdAt"   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_guest_expires ON "GuestSession"("expiresAt");
+
+CREATE TABLE "Actor" (
+  "id"             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "type"           "ActorType" NOT NULL,
+  "userId"         UUID REFERENCES "User"("id"),
+  "guestSessionId" UUID REFERENCES "GuestSession"("id") ON DELETE CASCADE,
+  CONSTRAINT "actor_reference_check" CHECK (
+    ("userId" IS NOT NULL AND "guestSessionId" IS NULL) OR
+    ("userId" IS NULL AND "guestSessionId" IS NOT NULL)
+  )
+);
+CREATE INDEX idx_actor_user ON "Actor"("userId");
+CREATE INDEX idx_actor_guest ON "Actor"("guestSessionId");
+```
+
+- P3.5b ConversationParticipant migration — replace `userId` with `actorId`:
+```sql
+ALTER TABLE "ConversationParticipant"
+  DROP COLUMN "userId",
+  ADD COLUMN "actorId" UUID REFERENCES "Actor"("id") NOT NULL;
+```
+
+- P3.5c Guest auth endpoints & Promotion:
+  - `POST /v1/auth/guest` → creates `GuestSession` and `Actor (type: GUEST, guestSessionId: id)`, issues JWT `{ actorId }`
+  - `POST /v1/auth/register` → If guest session exists in request context, promote automatically: set `Actor.userId` to new `User.id`, set `Actor.guestSessionId` to `NULL`, and update `Actor.type` to `USER`. No Participant rows need to be migrated because they already point to the same `Actor.id`.
+
+- P3.5d GuestPolicy preset — registered in PolicyService at startup:
+```typescript
+GUEST: {
+  id: 'policy_guest_v1',
+  identityPolicy: {
+    defaultState:     'ANONYMOUS',
+    revealMechanism:  'DISABLED',   // no profile to reveal
+    revealExpiry:     null,
+  },
+  retentionPolicy: {
+    type:          'EPHEMERAL',
+    ttlSeconds:    86400,           // 24h
+    deleteOnLeave: false,
+  },
+  capabilities: new Set([
+    Capability.SEND_TEXT,           // text only — no media, no calls, no connections
+  ]),
+}
+```
+
+- P3.5e PolicyService.assertCapability() — Authorization engine looks up the actor type in the DB to determine capabilities. JWT stays tiny (`actorId` only).
+- P3.5f MessageSerializer — no change needed. It resolves `senderParticipantId` → Persona.
+- P3.5g ParticipantRepository — resolve identity chain handles actors:
+```typescript
+async resolveIdentity(participantId: UUID): Promise<GuestSession | UserProfile> {
+  const participant = await this.findById(participantId);
+  const actor = await this.actorService.findById(participant.actorId);
+
+  if (actor.type === 'USER' && actor.userId) {
+    return this.identityService.resolve(actor.userId, participant.identityState);
+  }
+
+  if (actor.type === 'GUEST' && actor.guestSessionId) {
+    return this.personaService.getForParticipant(participantId);
+  }
+
+  throw new Error(`Unsupported actor configuration: type ${actor.type}`);
+}
+```
+
+- P3.5h Guest cleanup job — add to BullMQ (runs nightly):
+```typescript
+// Deletes GuestSession rows past expiresAt
+// ON DELETE CASCADE automatically cleans up the orphaned GUEST Actor
+async function cleanupExpiredGuests() {
+  await db.guestSession.deleteMany({
+    where: { expiresAt: { lt: new Date() } }
+  });
+}
+```
+
+- P3.5i Schema migration for existing senderParticipantId: This is the same 3-deploy protocol as before — messages reference Participant, not User or GuestSession directly.
+
+**Realtime — no changes for guest support.**
+The WS layer doesn't know or care whether a connection is a guest or user — it just sees a verified JWT with an `actorId`. The ConnectionRegistry stores it opaquely:
+```typescript
+interface ConnectionEntry {
+  ws:             WebSocket;
+  actorId:        string;      // opaque to realtime
+  conversationId: string | null;
+  connectedAt:    string;
+}
+```
+
+**Realtime Phase 3 Enhancements (Asynchronous API decoupling):**
+- P3.8 Redis client (`ioredis`) — subscriber to all `moots:event:*` channels (for outbound delivery)
+- P3.9 Route Redis events to connected WS clients by `conversationId`
+- P3.10 Replace `session.messages[]` with API fetch (on `join-chat`)
+- P3.11 `send-message` → pushes `moots:command:send_message` to Redis queue → API Worker persists → API publishes `moots:event:message_sent` → realtime delivers
+- P3.12 `connection:request/accepted` → pushes command to Redis queue
+- P3.13 `participant:identity-revealed` → pushes command to Redis queue
+- P3.14 `edit-message` / `send-reaction` / `read-messages` → all push to Redis queues (zero HTTP from Realtime to API)
+
+**Verification for Phase 3:**
+- Guest token issued → WS connects → joins matchmaking queue → matched → conversation created with GUEST_POLICY → sends text message → message in Postgres with `actorId` on Participant row
+- Guest tries to send image → CAPABILITY_DENIED (403)
+- Guest tries to reveal identity → CAPABILITY_DENIED (403)
+- Guest registers → `POST /v1/auth/register` → `Actor` row updated: `userId` populated, `guestSessionId` nullified, `type` → `USER` → same conversation, same messages, same persona until reveal
+
+---
+
+### What the complete entity flow looks like now
+
+```
+New user arrives
+       │
+       ▼
+POST /v1/auth/guest
+       │
+       ├── creates GuestSession (TTL 24h) + Actor (type: GUEST, guestSessionId)
+       ├── issues JWT { actorId: actor.id }
+       │
+       ▼
+WS connect → JWT verified → actorId stored in ConnectionRegistry
+       │
+       ▼
+join-queue → matched → API creates Conversation with GUEST_POLICY
+       │
+       ▼
+ConversationParticipant { actorId: A, personaId: Y }
+       │
+       ▼
+Sends messages → senderParticipantId → renders as "🌿 Silent River"
+       │
+       ├── [if they leave without registering]
+       │       GuestSession expires after 24h → cleanup job deletes
+       │       Actor row cascades
+       │       Messages remain, persona preserved, participant soft-deleted
+       │
+       └── [if they register mid-session]
+               POST /v1/auth/register (with guest session)
+               Actor.userId = newUser.id, Actor.guestSessionId = null
+               Actor.type = 'USER'
+               GuestSession deleted/invalidated
+               New JWT issued { actorId: actor.id }
+               WS reconnects with new token — same conversation continues
+```
+
+---
+
+### Phase 4 — Real-Time Architecture Hardening — Weeks 4–5
+
+- P4.1 Redis pub/sub fully operational — both API and realtime connected
+- P4.2 Room management: `conversationId → Set<connectionId>` (replaces `sessionId`)
+- P4.3 Presence gateway: `online/offline` events, `lastSeenAt` update via API
+- P4.4 Matchmaking: move queue to Redis sorted set (atomic, shareable across nodes)
+- P4.5 `match-found` emits `conversationId` (API-created conversation ID)
+- P4.6 Per-connection rate limiting (token bucket, 60 msg/min)
+- P4.7 Reconnection: on `join-chat`, fetch missed messages from API since `lastSeenAt`
+- P4.8 Session grace period timers: migrate to Redis `EXPIRE` (survives node restart)
+- P4.9 Typed event contracts from `packages/contracts` used throughout
+
+**Verification**: Deploy 2 realtime instances. Send message via instance A. Verify delivery on instance B. Queue user on instance A, match with user on instance B.
+
+---
+
+### Phase 5 — Performance, Security & Observability — Week 6
+
+- P5.1 `prom-client` metrics exposed at `GET /metrics` (both services)
+- P5.2 OpenTelemetry auto-instrumentation (both services, shared `correlationId`)
+- P5.3 Sentry error tracking (both services)
+- P5.4 BullMQ job queue in API — email, token cleanup, `lastActivityAt` updates
+- P5.5 `senderParticipantId` schema migration (3-deploy protocol)
+- P5.6 Missing database indexes
+- P5.7 bcrypt rounds 10 → 12
+- P5.8 Audit log stream — all auth events, all capability denials, all WS auth failures
+
+**Verification**: Load test: 1000 concurrent WS clients, 100 msg/s. P99 delivery latency < 100ms. Metrics dashboard showing all key gauges. OpenTelemetry trace spans across API → Redis → Realtime.
+
+---
+
+### Phase 6 — Developer Experience, Testing & Build — Week 7
+
+**API:**
+- P6.1 vitest + supertest integration tests for all endpoints
+- P6.2 Unit tests for all services and AuthorizationEngine
+- P6.3 Production build via `tsc` (remove `tsx` from prod path)
+- P6.4 OpenAPI from Zod schemas
+
+**Realtime:**
+- P6.5 WebSocket integration tests (`ws` client connecting to test server)
+- P6.6 Unit tests for `MatchmakingService.findMatch()` algorithm
+- P6.7 Unit tests for `SessionService` grace period logic
+- P6.8 Production build via `tsc`
+
+**Shared:**
+- P6.9 `packages/contracts` — unit tests for all shared schemas
+- P6.10 ESLint + Prettier configured identically for both services
+- P6.11 CI pipeline: lint → type-check → test → coverage → build → security scan
+
+**Verification**: CI pipeline green on both services. Coverage ≥ 80% for services layer. WS integration tests verify matchmaking, message delivery, reconnect.
+
+---
+
+### Phase 7 — Platform Governance — Week 8
+
+- P7.1 All 10 ADRs written
+- P7.2 Engineering standards document (living, in `docs/standards/`)
+- P7.3 API standards document
+- P7.4 Realtime standards document (event naming, ACK, reconnection)
+- P7.5 Service boundary document (this document, distilled)
+- P7.6 Privacy standards document
+- P7.7 Data lifecycle document
+- P7.8 Incident response runbook
+- P7.9 Branch strategy + PR template enforced in GitHub
+- P7.10 Secrets rotation policy
+- P7.11 Deployment runbook for zero-downtime schema migrations
+
+---
+
+## Part IX — Infrastructure Requirements
+
+| Component | Current | Required |
+|---|---|---|
+| Postgres | ✅ (Supabase implied) | ✅ |
+| Redis | ❌ None | ✅ Required — pub/sub, sessions, rate limiting, presence |
+| API service | ✅ Render/Railway | ✅ |
+| Realtime service | ✅ Render | ✅ (2+ instances behind load balancer) |
+| Internal network | ❌ None | ✅ API ↔ Realtime on private network (no public internet) |
+| CI/CD | ❌ None | ✅ GitHub Actions |
+| Secrets manager | ❌ Env files | ✅ Doppler or platform secrets |
+| Monitoring | ❌ None | ✅ Prometheus + Grafana (or Datadog) |
+| Error tracking | ❌ None | ✅ Sentry |
+| Log aggregation | ❌ None | ✅ Loki + Grafana or Datadog Logs |
+
+---
+
+## Part X — Platform Summary
+
+### Before
+
+```
+Two disconnected services:
+  API:      TypeScript, Express, Postgres, no auth, no messages domain
+  Realtime: JavaScript, ws, in-memory only, no auth, messages never persisted
+  Link:     None
+  Scale:    Single instance of each, no shared state
+  Security: Both completely unauthenticated
+```
+
+### After
+
+```
+One cohesive platform:
+  API:      TypeScript, Express, Postgres, JWT auth, full domain model, Redis publisher
+  Realtime: TypeScript, ws, Redis subscriber, delivery only, JWT verified
+  Link:     Redis Pub/Sub + optional internal HTTP for business logic
+  Scale:    N API instances + M realtime instances, all sharing Redis state
+  Security: JWT on HTTP + JWT on WS handshake, userId never from payload
+  Shared:   packages/contracts — event types, WS event map, Zod schemas
+```
+
+---
+
+## Part XI — Long-Term Bounded Contexts & Evolution (v2)
+
+While Phases 1–7 establish a secure, scalable, and correct platform, the ultimate architecture to support millions of users and future entities (e.g. AI assistants, organizations) will evolve toward these strict bounded contexts:
+
+### 1. Universal Actor Model
+`Actor` becomes the universal root for all identities: `USER`, `GUEST`, `BOT`, `SYSTEM`, `MODERATOR`, `SUPPORT`, `AI`, `ORGANIZATION`. This prevents future schema migrations when adding new participant types.
+
+### 2. Dedicated Persona Entity
+`Persona` becomes a concrete database entity (`id, participantId, displayName, avatar, theme, accentColor, badge`). This decouples UI representation from the `Actor` entirely, crucial for customizable anonymous identities.
+
+### 3. Formalized Identity State Machine
+`IdentityState` transitions strictly from `HIDDEN → REVEAL_PENDING → REVEALED → REVOKED`, preventing impossible states at the database level.
+
+### 4. Participant-based Connections
+`Connection` links `Participant` to `Participant`, not `Actor` to `Actor`. Connections belong to the context of a conversation, allowing one person with multiple identities to maintain strict boundary separation.
+
+### 5. Immutable Conversations
+`Conversation` state becomes derived. Instead of mutative statuses (`ACTIVE`, `CLOSED`), conversations are immutable ledgers with `createdAt`, `endedAt`, and `deletedAt`.
+
+### 6. Event Sourcing & Domain Events
+Every mutation produces a `DomainEvent` (`id, aggregateId, aggregateType, eventType, payload, occurredAt`). This enables replay, CQRS, audit logs, and decoupling without redesign.
+
+### 7. Data-Driven Policies
+Policies (e.g. `GUEST_POLICY`) move from code to database entities (`Policy: id, name, capabilities, retention, identityRules`). `Conversation` instances reference a `policyId`.
+
+### 8. Strict Asynchronous Communication
+Realtime drops **all** internal HTTP calls to the API. Instead: `Realtime → Redis Command Queue → API Worker → Postgres → Redis Pub/Sub Event → Realtime`.
+
+### 9. Strict Participant Ownership
+`Message` relies exclusively on `senderParticipantId`. It never knows about `actorId` or `userId`.
+
+### 10. Dedicated Presence Domain
+Presence becomes a standalone domain (`lastSeen, online, device, status, typing`). The Realtime service merely updates it; the Presence domain owns the source of truth.
+
+### 11. Concrete Device Entities
+`Device` becomes a core model (`id, actorId, deviceId, platform, pushToken, fingerprint, trusted`) to support multi-device push notifications and login anomaly detection.
+
+### 12. Session Segregation
+`Session` is split into `AuthenticationSession` (login tokens) and `ConversationSession` (active participation in a room).
+
+### 13. Aggregate Roots
+Repositories strictly enforce Aggregate Roots (e.g. `Conversation` owns `Participant`, `Persona`, `Messages`). Repositories only fetch and persist whole aggregates.
+
+### 14. Outbox Pattern for Redis
+To guarantee message delivery without lost events, transactions write the message to Postgres and a `DomainEvent` to an Outbox table in the same transaction. A dedicated worker publishes the outbox to Redis.
+
+### 15. Complete Capability-Based Authorization
+No hardcoded `if (isGuest)` checks anywhere. All operations pass through `policy.can(Capability, actor, conversation)`.
+
+### Target Bounded Context Map
+
+```
+backend/
+│
+├── api/
+│   ├── auth/
+│   ├── actors/
+│   ├── identities/
+│   ├── personas/
+│   ├── conversations/
+│   ├── participants/
+│   ├── messages/
+│   ├── connections/
+│   ├── matchmaking/
+│   ├── presence/
+│   ├── moderation/
+│   ├── notifications/
+│   ├── devices/
+│   ├── media/
+│   ├── policies/
+│   ├── analytics/
+│   ├── search/
+│   ├── jobs/
+│   ├── events/
+│   ├── outbox/
+│   └── administration/
+│
+├── realtime/
+│   ├── gateways/
+│   ├── presence/
+│   ├── matchmaking/
+│   ├── rooms/
+│   ├── delivery/
+│   ├── redis/
+│   ├── auth/
+│   └── registry/
+│
+└── packages/
+    ├── contracts/
+    ├── sdk/
+    ├── events/
+    └── shared/
+```
+
+### Responsibility Summary (Final)
+
+```
+backend/api owns:        business logic · persistence · auth authority · policy
+backend/realtime owns:   delivery · presence · matchmaking · connection lifecycle
+packages/contracts owns: shared types · event envelopes · WS event map
+Redis owns:              pub/sub bus · session grace timers · matchmaking queue
+```

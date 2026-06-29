@@ -30,8 +30,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          const data = await res.json();
-          return data.user || null;
+          const json = await res.json();
+          // The backend wraps responses in { success: true, data: { accessToken, user } }
+          const authData = json.data;
+
+          if (!authData?.user) return null;
+
+          // Attach the backend-issued JWT so we can forward it to protected backend routes
+          // and WebSocket connections. The token is stored server-side in the NextAuth JWT.
+          return {
+            ...authData.user,
+            accessToken: authData.accessToken ?? null,
+          };
         } catch (err) {
           console.error("Backend login request failed:", err);
           return null;
@@ -40,3 +50,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 });
+

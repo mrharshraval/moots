@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { getOrInitializeNickname } from "@/lib/nickname"
 import { useSession } from "next-auth/react"
 import { logger } from "@/lib/logger"
+import { getWsAccessToken } from "@/lib/ws-token"
 import {
   RotateCcw,
   MoreHorizontal,
@@ -117,6 +118,48 @@ export default function ChatSessionPage() {
     }
   }, [peerUsername, peerNickname, pageState])
 
+  const [hasRevealedIdentity, setHasRevealedIdentity] = React.useState(false)
+  const [partnerRevealedIdentity, setPartnerRevealedIdentity] = React.useState(false)
+  const [connectionStatus, setConnectionStatus] = React.useState<"none" | "pending_sent" | "pending_received" | "accepted">("none")
+
+  const handleRevealIdentity = () => {
+    if (!wsRef.current || !session?.user) return
+    wsRef.current.send(
+      JSON.stringify({
+        type: "participant:identity-revealed",
+        payload: {
+          sessionId,
+          username: session.user.name || (session.user as any).username,
+          name: session.user.name,
+          image: session.user.image,
+        },
+      })
+    )
+    setHasRevealedIdentity(true)
+  }
+
+  const handleSendConnectionRequest = async () => {
+    if (!wsRef.current) return
+    wsRef.current.send(
+      JSON.stringify({
+        type: "connection:request",
+        payload: { sessionId },
+      })
+    )
+    setConnectionStatus("pending_sent")
+  }
+
+  const handleAcceptConnectionRequest = async () => {
+    if (!wsRef.current) return
+    wsRef.current.send(
+      JSON.stringify({
+        type: "connection:accepted",
+        payload: { sessionId },
+      })
+    )
+    setConnectionStatus("accepted")
+  }
+
   const [inputText, setInputText] = React.useState("")
   const [replyingTo, setReplyingTo] = React.useState<Message | null>(null)
   const [editingMsg, setEditingMsg] = React.useState<Message | null>(null)
@@ -185,166 +228,201 @@ export default function ChatSessionPage() {
     setUserId(uId)
 
     const requestId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`
-    const wsUrl = `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
     logger.info(`WebSocket: Connecting to Chat Server`, {
       requestId,
-      userId: uId,
       sessionId,
       action: "chat-connect"
     })
 
-    const ws = new WebSocket(wsUrl)
-    wsRef.current = ws
+    // Inner async function — useEffect callbacks cannot themselves be async
+    const connect = async () => {
+      // Fetch backend JWT — required by the realtime server for authentication
+      const accessToken = await getWsAccessToken()
+      const wsUrl = accessToken
+        ? `${env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(accessToken)}&requestId=${requestId}`
+        : `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
 
-    const sendReadReceipt = () => {
-      if (ws.readyState === WebSocket.OPEN && document.visibilityState === "visible") {
+      const ws = new WebSocket(wsUrl)
+      wsRef.current = ws
+
+      const sendReadReceipt = () => {
+        if (ws.readyState === WebSocket.OPEN && document.visibilityState === "visible") {
+          ws.send(
+            JSON.stringify({
+              type: "read-messages",
+              payload: { sessionId },
+            })
+          )
+        }
+      }
+
+      ws.onopen = () => {
+        logger.info(`WebSocket: Connected to Chat Server`, { requestId, sessionId })
         ws.send(
           JSON.stringify({
-            type: "read-messages",
-            payload: { userId: uId, sessionId },
+            type: "join-chat",
+            payload: {
+              nickname: getOrInitializeNickname(),
+              username: session?.user?.name || (session?.user as any)?.username || undefined,
+              sessionId
+            },
           })
         )
+        setTimeout(sendReadReceipt, 100)
       }
-    }
 
-    ws.onopen = () => {
-      logger.info(`WebSocket: Connected to Chat Server`, { requestId, userId: uId, sessionId })
-      ws.send(
-        JSON.stringify({
-          type: "join-chat",
-          payload: {
-            userId: uId,
-            nickname: getOrInitializeNickname(),
-            username: session?.user?.name || (session?.user as any)?.username || undefined,
-            sessionId
-          },
-        })
-      )
-      setTimeout(sendReadReceipt, 100)
-    }
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          const { type, payload } = data
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        const { type, payload } = data
+          logger.info(`WebSocket Message: Received ${type}`, { requestId, userId: uId, sessionId, eventType: type })
 
-        logger.info(`WebSocket Message: Received ${type}`, { requestId, userId: uId, sessionId, eventType: type })
-
-        switch (type) {
-          case "chat-history": {
-            const history = payload.messages.map((m: any) => ({
-              id: m.id,
-              sender: m.senderId === uId ? "user" : "stranger",
-              content: m.content,
-              time: m.time,
-              seen: m.seen,
-              edited: m.edited,
-              reactions: m.reactions,
-              replyTo: m.replyTo
-                ? {
-                    id: m.replyTo.id,
-                    sender: m.replyTo.senderId === uId ? "user" : "stranger",
-                    content: m.replyTo.content,
-                  }
-                : undefined,
-            }))
-            setMessages(history)
-            if (payload.partnerNickname) {
-              setPeerNickname(payload.partnerNickname)
-            }
-            if (payload.partnerUsername) {
-              setPeerUsername(payload.partnerUsername)
-            }
-            sendReadReceipt()
-            break
-          }
-
-          case "message": {
-            const newMsg: Message = {
-              id: payload.id,
-              sender: payload.senderId === uId ? "user" : "stranger",
-              content: payload.content,
-              time: payload.time,
-              seen: payload.seen,
-              edited: payload.edited,
-              reactions: payload.reactions,
-              replyTo: payload.replyTo
-                ? {
-                    id: payload.replyTo.id,
-                    sender: payload.replyTo.senderId === uId ? "user" : "stranger",
-                    content: payload.replyTo.content,
-                  }
-                : undefined,
-            }
-            setMessages((prev) => [...prev, newMsg])
-            if (newMsg.sender === "stranger") {
+          switch (type) {
+            case "chat-history": {
+              const history = payload.messages.map((m: any) => ({
+                id: m.id,
+                sender: m.senderId === uId ? "user" : "stranger",
+                content: m.content,
+                time: m.time,
+                seen: m.seen,
+                edited: m.edited,
+                reactions: m.reactions,
+                replyTo: m.replyTo
+                  ? {
+                      id: m.replyTo.id,
+                      sender: m.replyTo.senderId === uId ? "user" : "stranger",
+                      content: m.replyTo.content,
+                    }
+                  : undefined,
+              }))
+              setMessages(history)
+              if (payload.partnerNickname) {
+                setPeerNickname(payload.partnerNickname)
+              }
+              if (payload.partnerUsername) {
+                setPeerUsername(payload.partnerUsername)
+              }
               sendReadReceipt()
+              break
             }
-            break
-          }
 
-          case "reaction-update": {
-            const { messageId, reactions } = payload
-            setMessages((prev) =>
-              prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
-            )
-            break
-          }
-
-          case "partner-seen-messages": {
-            setMessages((prev) =>
-              prev.map((msg) => (msg.sender === "user" ? { ...msg, seen: true } : msg))
-            )
-            break
-          }
-
-          case "message-edited": {
-            const { messageId, content, edited } = payload
-            setMessages((prev) =>
-              prev.map((msg) => (msg.id === messageId ? { ...msg, content, edited } : msg))
-            )
-            setEditingMsg((curr) => (curr?.id === messageId ? null : curr))
-            break
-          }
-
-          case "partner-typing": {
-            setIsTyping(payload.isTyping)
-            break
-          }
-
-          case "partner-joined": {
-            if (payload.partnerNickname) {
-              setPeerNickname(payload.partnerNickname)
+            case "message": {
+              const newMsg: Message = {
+                id: payload.id,
+                sender: payload.senderId === uId ? "user" : "stranger",
+                content: payload.content,
+                time: payload.time,
+                seen: payload.seen,
+                edited: payload.edited,
+                reactions: payload.reactions,
+                replyTo: payload.replyTo
+                  ? {
+                      id: payload.replyTo.id,
+                      sender: payload.replyTo.senderId === uId ? "user" : "stranger",
+                      content: payload.replyTo.content,
+                    }
+                  : undefined,
+              }
+              setMessages((prev) => [...prev, newMsg])
+              if (newMsg.sender === "stranger") {
+                sendReadReceipt()
+              }
+              break
             }
-            if (payload.partnerUsername) {
-              setPeerUsername(payload.partnerUsername)
-            }
-            break
-          }
 
-          case "partner-disconnected": {
-            ws.close()
-            setPageState("disconnected")
-            break
+            case "reaction-update": {
+              const { messageId, reactions } = payload
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
+              )
+              break
+            }
+
+            case "partner-seen-messages": {
+              setMessages((prev) =>
+                prev.map((msg) => (msg.sender === "user" ? { ...msg, seen: true } : msg))
+              )
+              break
+            }
+
+            case "message-edited": {
+              const { messageId, content, edited } = payload
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === messageId ? { ...msg, content, edited } : msg))
+              )
+              setEditingMsg((curr) => (curr?.id === messageId ? null : curr))
+              break
+            }
+
+            case "partner-typing": {
+              setIsTyping(payload.isTyping)
+              break
+            }
+
+            case "partner-joined": {
+              if (payload.partnerNickname) {
+                setPeerNickname(payload.partnerNickname)
+              }
+              if (payload.partnerUsername) {
+                setPeerUsername(payload.partnerUsername)
+              }
+              break
+            }
+
+            case "partner-disconnected": {
+              ws.close()
+              setPageState("disconnected")
+              break
+            }
+
+            case "participant:identity-revealed": {
+              setPartnerRevealedIdentity(true)
+              if (payload.username) setPeerUsername(payload.username)
+              if (payload.name) setPeerNickname(payload.name)
+              break
+            }
+
+            case "connection:request": {
+              setConnectionStatus("pending_received")
+              break
+            }
+
+            case "connection:accepted": {
+              setConnectionStatus("accepted")
+              break
+            }
           }
+        } catch (e) {
+          console.error("Chat WS message parsing error:", e)
         }
-      } catch (e) {
-        console.error("Chat WS message parsing error:", e)
+      }
+
+      window.addEventListener("focus", sendReadReceipt)
+      document.addEventListener("visibilitychange", sendReadReceipt)
+
+      // Return cleanup so the outer effect can call it
+      return () => {
+        ws.close()
+        window.removeEventListener("focus", sendReadReceipt)
+        document.removeEventListener("visibilitychange", sendReadReceipt)
       }
     }
 
-    window.addEventListener("focus", sendReadReceipt)
-    document.addEventListener("visibilitychange", sendReadReceipt)
+    // Fire the async connection; capture returned cleanup fn
+    let cleanup: (() => void) | undefined
+    connect().then((fn) => { cleanup = fn })
 
     return () => {
-      ws.close()
-      window.removeEventListener("focus", sendReadReceipt)
-      document.removeEventListener("visibilitychange", sendReadReceipt)
+      cleanup?.()
       if (matchingTimerRef.current) clearInterval(matchingTimerRef.current)
       if (matchingWsRef.current) matchingWsRef.current.close()
+      // Fallback: also close via ref in case cleanup hasn't been set yet
+      if (wsRef.current) wsRef.current.close()
     }
   }, [sessionId, router])
+
 
   React.useEffect(() => {
     const textarea = textareaRef.current
@@ -440,7 +518,6 @@ export default function ChatSessionPage() {
         JSON.stringify({
           type: "edit-message",
           payload: {
-            userId,
             sessionId,
             messageId: editingMsg.id,
             newContent: text,
@@ -453,7 +530,6 @@ export default function ChatSessionPage() {
         JSON.stringify({
           type: "send-message",
           payload: {
-            userId,
             sessionId,
             content: text,
             replyTo: replyingTo
@@ -478,7 +554,7 @@ export default function ChatSessionPage() {
     wsRef.current.send(
       JSON.stringify({
         type: "typing-status",
-        payload: { userId, sessionId, isTyping: false },
+        payload: { sessionId, isTyping: false },
       })
     )
   }
@@ -489,7 +565,7 @@ export default function ChatSessionPage() {
       wsRef.current.send(
         JSON.stringify({
           type: "typing-status",
-          payload: { userId, sessionId, isTyping: val.trim().length > 0 },
+          payload: { sessionId, isTyping: val.trim().length > 0 },
         })
       )
     }
@@ -514,7 +590,7 @@ export default function ChatSessionPage() {
       wsRef.current.send(
         JSON.stringify({
           type: "send-reaction",
-          payload: { userId, sessionId, messageId: id, emoji },
+          payload: { sessionId, messageId: id, emoji },
         })
       )
     }
@@ -529,11 +605,50 @@ export default function ChatSessionPage() {
 
       {/* ── ACTIVE OR DISCONNECTED (Scenario 2: Engaged) ── */}
       {(pageState === "active" || (pageState === "disconnected" && isEngaged)) ? (
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar"
-        >
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Action Bar */}
+          {pageState === "active" && (
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/10 shrink-0">
+              <div className="text-xs text-muted-foreground flex gap-4">
+                {partnerRevealedIdentity ? (
+                  <span className="text-primary font-medium flex items-center gap-1.5"><CheckCheck className="w-3.5 h-3.5" /> Identity Revealed</span>
+                ) : (
+                  <span>Anonymous Chat</span>
+                )}
+                {connectionStatus === "accepted" && (
+                  <span className="text-primary font-medium flex items-center gap-1.5"><Heart className="w-3.5 h-3.5" /> Connected</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {!hasRevealedIdentity && session?.user && (
+                  <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={handleRevealIdentity}>
+                    Reveal Identity
+                  </Button>
+                )}
+                {connectionStatus === "none" && (
+                  <Button variant="secondary" size="sm" className="h-7 text-[11px]" onClick={handleSendConnectionRequest}>
+                    Connect
+                  </Button>
+                )}
+                {connectionStatus === "pending_sent" && (
+                  <Button variant="secondary" size="sm" className="h-7 text-[11px]" disabled>
+                    Request Sent
+                  </Button>
+                )}
+                {connectionStatus === "pending_received" && (
+                  <Button variant="secondary" size="sm" className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleAcceptConnectionRequest}>
+                    Accept Connection
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto custom-scrollbar"
+          >
           {/* justify-end keeps messages gravity-anchored to the bottom */}
           <div className="flex flex-col justify-end min-h-full px-6 pt-8 pb-4 gap-5 max-w-3xl mx-auto w-full">
 
@@ -856,6 +971,7 @@ export default function ChatSessionPage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       ) : null}

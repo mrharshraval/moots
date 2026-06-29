@@ -12,6 +12,7 @@ if (isProd && typeof window === "undefined") {
 
 export const env = {
   NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001",
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
   BACKEND_API_URL: process.env.BACKEND_API_URL || "http://localhost:3002",
   AUTH_SECRET: process.env.AUTH_SECRET,
   NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@moots.in",

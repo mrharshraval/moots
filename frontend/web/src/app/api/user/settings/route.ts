@@ -11,6 +11,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const accessToken = (session as any).accessToken as string | null;
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "No backend token. Please sign out and sign back in." },
+        { status: 403 }
+      );
+    }
+
     const { username, name, bio, image } = await req.json();
     const requestId = req.headers.get("x-request-id") || "";
 
@@ -19,15 +27,11 @@ export async function PUT(req: Request) {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        // Forward the backend-issued JWT so the authenticate middleware accepts the request
+        "Authorization": `Bearer ${accessToken}`,
         "X-Request-ID": requestId,
       },
-      body: JSON.stringify({
-        userId: session.user.id,
-        username,
-        name,
-        bio,
-        image,
-      }),
+      body: JSON.stringify({ username, name, bio, image }),
       actionName: "Proxy PUT /api/user/settings",
       userId: session.user.id,
     });
@@ -42,3 +46,4 @@ export async function PUT(req: Request) {
     );
   }
 }
+
