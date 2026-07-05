@@ -34,6 +34,9 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`)
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'api-client.ts:pre-request',message:'apiRequest auth state before fetch',data:{url,method,hasToken:!!token,authHeaderAttached:headers.has('Authorization'),isRetry:!!fetchOptions._retry},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   
   fetchOptions.headers = headers
 
@@ -76,6 +79,14 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
           const refreshRes = await fetch(`/api/auth/token`, {
             method: "GET",
           })
+          // #region agent log
+          let backendRefreshStatus: number | null = null
+          try {
+            const backendRefreshRes = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
+            backendRefreshStatus = backendRefreshRes.status
+          } catch { backendRefreshStatus = -1 }
+          fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'api-client.ts:401-refresh',message:'401 refresh attempt results',data:{originalUrl:url,nextAuthTokenRouteStatus:refreshRes.status,backendRefreshRouteStatus:backendRefreshStatus},timestamp:Date.now(),hypothesisId:'B,C,D'})}).catch(()=>{});
+          // #endregion
 
           if (refreshRes.ok) {
             const refreshData = await refreshRes.json()

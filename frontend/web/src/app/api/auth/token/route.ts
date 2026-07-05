@@ -13,6 +13,9 @@ import { auth } from "@/auth";
  */
 export async function GET() {
   const session = await auth();
+  // #region agent log
+  fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'api/auth/token/route.ts:GET',message:'NextAuth token route session check',data:{hasSession:!!session,hasUser:!!session?.user,hasAccessToken:!!(session as any)?.accessToken},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
