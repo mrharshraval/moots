@@ -35,6 +35,22 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Anti-CSRF: Require a custom header (X-Request-ID or X-Requested-With) for state-changing requests
+app.use((req, res, next) => {
+  const safeMethods = ["GET", "HEAD", "OPTIONS"];
+  if (!safeMethods.includes(req.method)) {
+    const hasCustomHeader = !!req.headers["x-request-id"] || !!req.headers["x-requested-with"];
+    const hasInternalKey = !!req.headers["x-internal-service-key"];
+    if (!hasCustomHeader && !hasInternalKey) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: "CSRF_ERROR", message: "CSRF protection: missing custom header" } 
+      });
+    }
+  }
+  next();
+});
+
 // Request Tracing and Logging Middleware
 app.use((req, res, next) => {
   const requestId = (req.headers["x-request-id"] as string | undefined) ?? crypto.randomUUID();

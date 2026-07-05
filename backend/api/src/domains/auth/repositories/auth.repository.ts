@@ -1,4 +1,4 @@
-﻿import { prisma } from "../../../database/index.js";
+import { prisma } from "../../../database/index.js";
 
 import { User, VerificationToken, Prisma } from "@prisma/client";
 
@@ -15,15 +15,15 @@ export class AuthRepository {
     });
   }
 
-  async createUser(data: any, tx?: Prisma.TransactionClient): Promise<User> {
+  async createUser(data: Prisma.UserCreateInput, tx?: Prisma.TransactionClient): Promise<User> {
     return (tx || prisma).user.create({ data });
   }
 
-  async updateUser(email: string, data: any, tx?: Prisma.TransactionClient): Promise<User> {
+  async updateUser(email: string, data: Prisma.UserUpdateInput, tx?: Prisma.TransactionClient): Promise<User> {
     return (tx || prisma).user.update({ where: { email }, data });
   }
 
-  async updateUserById(id: string, data: any, tx?: Prisma.TransactionClient): Promise<User> {
+  async updateUserById(id: string, data: Prisma.UserUpdateInput, tx?: Prisma.TransactionClient): Promise<User> {
     return (tx || prisma).user.update({ where: { id }, data });
   }
 

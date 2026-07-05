@@ -62,8 +62,13 @@ export const IdentityRevealedPayloadSchema = z.object({
   image: z.string().optional(),
 });
 
+export const AuthenticatePayloadSchema = z.object({
+  token: z.string().min(1),
+});
+
 // Central inbound message schema unioned on 'type'
 export const InboundMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("authenticate"), payload: AuthenticatePayloadSchema }),
   z.object({ type: z.literal("join-queue"), payload: JoinQueuePayloadSchema }),
   z.object({ type: z.literal("cancel-queue"), payload: CancelQueuePayloadSchema }),
   z.object({ type: z.literal("join-chat"), payload: JoinChatPayloadSchema }),

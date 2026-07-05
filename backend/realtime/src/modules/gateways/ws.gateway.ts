@@ -33,45 +33,32 @@ export function initializeWebSocketGateway(wss: WebSocketServer) {
       return;
     }
 
-    // 2. JWT Authentication
-    const tokenRaw = parsedUrl.query.token;
-    const token = Array.isArray(tokenRaw) ? tokenRaw[0] : tokenRaw;
-    
-    let decodedUser;
-    try {
-      if (!token) throw new Error("Missing token");
-      decodedUser = verifyToken(token);
-    } catch (error: any) {
-      structuredLog("AUTH_FAILED", "SYSTEM", {
-        details: `Invalid or missing token (IP: ${clientIp}) - ${error.message}`,
-      }, "warn");
-
-      redis.lpush("moots:command:audit_log", JSON.stringify({
-        actorId: null,
-        event: "WS_AUTH_FAILURE",
-        metadata: { reason: error.message, origin, requestId },
-        ip: typeof clientIp === "string" ? clientIp : Array.isArray(clientIp) ? clientIp[0] : null,
-      })).catch(() => {});
-
-      ws.close(4001, "Unauthorized");
-      return;
-    }
-
-    // 3. Register Connection with Request ID and Authenticated User
-    const actorId = decodedUser.actorId || null;
-    const email = (decodedUser as any).email || null;
-    const conn = registry.register(ws, requestId, actorId, email);
-
-    redis.lpush("moots:command:audit_log", JSON.stringify({
-      actorId,
-      event: "WS_AUTH_SUCCESS",
-      metadata: { email, origin, requestId },
-      ip: typeof clientIp === "string" ? clientIp : Array.isArray(clientIp) ? clientIp[0] : null,
-    })).catch(() => {});
+    // 2. Register Unauthenticated Connection
+    const conn = registry.register(ws, requestId, null, null);
 
     structuredLog("CONNECTION_OPENED", conn.connectionId, {
-      details: `IP: ${clientIp} | Origin: ${origin || "None"}`,
+      details: `IP: ${clientIp} | Origin: ${origin || "None"} | RequestId: ${requestId}`,
     });
+
+    // 3. Set Authentication Timeout
+    // Drop the connection if it hasn't authenticated within 5 seconds
+    const authTimeout = setTimeout(() => {
+      const currentConn = registry.get(conn.connectionId);
+      if (currentConn && !currentConn.actorId) {
+        structuredLog("AUTH_TIMEOUT", conn.connectionId, {
+          details: `Client failed to authenticate within 5s (IP: ${clientIp})`,
+        }, "warn");
+        
+        redis.lpush("moots:command:audit_log", JSON.stringify({
+          actorId: null,
+          event: "WS_AUTH_TIMEOUT",
+          metadata: { origin, requestId },
+          ip: typeof clientIp === "string" ? clientIp : Array.isArray(clientIp) ? clientIp[0] : null,
+        })).catch(() => {});
+
+        ws.close(4001, "Authentication timeout");
+      }
+    }, 5000);
 
     // Heartbeat setup
     ws.on("pong", () => {
@@ -158,10 +145,7 @@ export function initializeWebSocketGateway(wss: WebSocketServer) {
     
     const queueSize = await matchmakingService.getQueueSize();
     wsConnectionsActive.set(wss.clients.size);
-    // @ts-ignore
-    if (wsMatchmakingQueueSize && typeof wsMatchmakingQueueSize.set === 'function') {
-      wsMatchmakingQueueSize.set(queueSize);
-    }
+    wsMatchmakingQueueSize.set(queueSize);
     
     structuredLog("CLEANUP_JOB", "SYSTEM", {
       details: `Stats - Clients: ${wss.clients.size} | Active Queued: ${queueSize} | Active Sessions: ${sessionService.getSessionsCount()}`

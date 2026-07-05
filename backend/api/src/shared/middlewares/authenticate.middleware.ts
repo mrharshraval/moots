@@ -11,11 +11,6 @@ import { requestContext } from "../context.js";
  */
 export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   const header = req.headers.authorization;
-  // #region agent log
-  if (req.path.includes("/conversations")) {
-    import("fs").then(fs => fs.appendFileSync("e:/moots/debug-2900a9.log", JSON.stringify({sessionId:"2900a9",location:"authenticate.middleware.ts",message:"conversations auth check",data:{path:req.path,hasAuthHeader:!!header,hasMootsSessionCookie:!!req.cookies?.moots_session,cookieKeys:Object.keys(req.cookies||{})},timestamp:Date.now(),hypothesisId:"A,C"})+"\n")).catch(()=>{});
-  }
-  // #endregion
   if (!header || !header.startsWith("Bearer ")) {
     next(new UnauthorizedError("Missing or malformed Authorization header"));
     return;

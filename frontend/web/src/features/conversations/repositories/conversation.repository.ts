@@ -1,13 +1,9 @@
 import { apiRequest } from "@/infrastructure/http/api-client"
 import { env } from "@/env"
 import { useMessagesStore, Conversation } from "@/features/chat"
-import { tokenManager } from "@/infrastructure/auth/token-manager"
 
 export class ConversationRepository {
   static async fetchConversations(cursor?: string): Promise<void> {
-    // #region agent log
-    fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'conversation.repository.ts:fetchConversations',message:'fetchConversations entry',data:{cursor:cursor??null,hasCachedToken:!!tokenManager.getToken(),localGuestToken:typeof window!=='undefined'?!!localStorage.getItem('moots_guest_token'):null},timestamp:Date.now(),hypothesisId:'A,C,E'})}).catch(()=>{});
-    // #endregion
     const store = useMessagesStore.getState()
     useMessagesStore.setState({ isLoading: true, error: null })
     

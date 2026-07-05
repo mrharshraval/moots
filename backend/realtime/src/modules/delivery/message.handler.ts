@@ -4,6 +4,7 @@ import { sessionService } from "../rooms/session.js";
 import { structuredLog } from "../../lib/logger.js";
 import { redis } from "../../lib/redis.js";
 import crypto from "crypto";
+import { verifyToken } from "../auth/auth.js";
 
 export async function handleParsedMessage(
   connectionId: string, 
@@ -15,10 +16,28 @@ export async function handleParsedMessage(
   const actorId = conn.actorId;
   const sessionId = ("sessionId" in payload && payload.sessionId) ? payload.sessionId : "N/A";
 
-  if (!actorId) return;
-
   switch (type) {
+    case "authenticate": {
+      try {
+        const decodedUser = verifyToken(payload.token);
+        const newActorId = decodedUser.actorId || null;
+        const newEmail = (decodedUser as any).email || null;
+        
+        registry.updateMetadata(connectionId, {
+          actorId: newActorId,
+          email: newEmail,
+        });
+        
+        conn.ws.send(JSON.stringify({ type: "authenticated", payload: { actorId: newActorId } }));
+      } catch (err: any) {
+        structuredLog("WS_AUTH_FAILURE", connectionId, { details: err.message }, "warn", conn);
+        conn.ws.close(4001, "Unauthorized");
+      }
+      break;
+    }
+
     case "join-queue": {
+      if (!actorId) return;
       const { interests, lang, country, nickname, username } = payload;
       
       registry.updateMetadata(connectionId, {
@@ -56,11 +75,13 @@ export async function handleParsedMessage(
     }
 
     case "cancel-queue": {
+      if (!actorId) return;
       await matchmakingService.removeUser(actorId);
       break;
     }
 
     case "join-chat": {
+      if (!actorId) return;
       const { nickname, username, sessionId } = payload;
       registry.updateMetadata(connectionId, {
         sessionId,
@@ -112,6 +133,7 @@ export async function handleParsedMessage(
     }
 
     case "read-messages": {
+      if (!actorId) return;
       const { sessionId } = payload;
       redis.lpush("moots:command:mark_read", JSON.stringify({ conversationId: sessionId, actorId })).catch((err: any) => {
         structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
@@ -120,6 +142,7 @@ export async function handleParsedMessage(
     }
 
     case "send-message": {
+      if (!actorId) return;
       const { sessionId, content, replyTo, clientMessageId } = payload;
       const finalClientMessageId = clientMessageId || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 11));
 
@@ -140,6 +163,9 @@ export async function handleParsedMessage(
 
       if (session) {
         session.messages.push({ ...wsMsg, _actorId: actorId });
+        if (session.messages.length > 100) {
+          session.messages.shift();
+        }
         sessionService.broadcast(sessionId, {
           type: "message",
           payload: wsMsg,
@@ -159,6 +185,7 @@ export async function handleParsedMessage(
     }
 
     case "edit-message": {
+      if (!actorId) return;
       const { sessionId, messageId, newContent } = payload;
       redis.lpush("moots:command:edit_message", JSON.stringify({
         messageId,
@@ -170,6 +197,7 @@ export async function handleParsedMessage(
     }
 
     case "send-reaction": {
+      if (!actorId) return;
       const { sessionId, messageId, emoji } = payload;
       redis.lpush("moots:command:send_reaction", JSON.stringify({
         messageId,
@@ -182,6 +210,7 @@ export async function handleParsedMessage(
     }
 
     case "typing-status": {
+      if (!actorId) return;
       const { sessionId, isTyping } = payload;
       const session = sessionService.getSession(sessionId);
       if (!session) return;
@@ -205,6 +234,7 @@ export async function handleParsedMessage(
     }
 
     case "connection:request": {
+      if (!actorId) return;
       const { sessionId } = payload;
       const session = sessionService.getSession(sessionId);
       if (!session) return;
@@ -222,6 +252,7 @@ export async function handleParsedMessage(
     }
 
     case "connection:accepted": {
+      if (!actorId) return;
       const { sessionId } = payload;
       const session = sessionService.getSession(sessionId);
       if (!session) return;
@@ -239,6 +270,7 @@ export async function handleParsedMessage(
     }
 
     case "connection:removed": {
+      if (!actorId) return;
       const { sessionId } = payload;
       const session = sessionService.getSession(sessionId);
       if (!session) return;
@@ -256,6 +288,7 @@ export async function handleParsedMessage(
     }
 
     case "participant:identity-revealed": {
+      if (!actorId) return;
       const { sessionId } = payload;
       redis.lpush("moots:command:identity_reveal", JSON.stringify({
         id: sessionId,
@@ -267,6 +300,7 @@ export async function handleParsedMessage(
     }
 
     case "participant:identity-hidden": {
+      if (!actorId) return;
       const { sessionId } = payload;
       sessionService.broadcast(sessionId, { type, payload }, registry, [actorId]);
       break;

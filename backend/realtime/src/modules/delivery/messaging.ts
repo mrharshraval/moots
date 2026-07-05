@@ -14,13 +14,19 @@ export class MessagingService {
 
     if (!conn.rateLimiter.allow()) {
       structuredLog("RATE_LIMIT_EXCEEDED", connectionId, { details: "Client sent messages too fast" }, "warn", conn);
-      conn.ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded. Please wait a moment." }));
+      conn.ws.send(JSON.stringify({ 
+        type: "error", 
+        payload: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded. Please wait a moment.", details: [] } } 
+      }));
       return;
     }
 
     const validation = validateInboundMessage(connectionId, rawMessage, conn);
     if (!validation.success) {
-      conn.ws.send(JSON.stringify({ type: "error", message: validation.error }));
+      conn.ws.send(JSON.stringify({ 
+        type: "error", 
+        payload: { success: false, error: { code: "VALIDATION_ERROR", message: validation.error, details: [] } } 
+      }));
       return;
     }
 
@@ -32,7 +38,13 @@ export class MessagingService {
     structuredLog(type, connectionId, { requestId: validation.requestId, actorId, sessionId }, "info", conn);
     wsMessagesTotal.inc({ type, direction: "inbound" });
 
-    if (!actorId) return;
+    if (type !== "authenticate" && !actorId) {
+      conn.ws.send(JSON.stringify({ 
+        type: "error", 
+        payload: { success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized. Please authenticate first.", details: [] } } 
+      }));
+      return;
+    }
 
     await handleParsedMessage(connectionId, type, payload, conn, validation.requestId!);
   }

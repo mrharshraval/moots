@@ -19,7 +19,7 @@ const EnvSchema = z.object({
   ALLOWED_ORIGINS: z.string()
     .default("http://localhost:3000,http://localhost:3001")
     .transform(s => s.split(",").map(o => o.trim())),
-  INTERNAL_SERVICE_KEY: z.string().default("test-internal-key-change-in-prod"),
+  INTERNAL_SERVICE_KEY: z.string().min(16, "INTERNAL_SERVICE_KEY must be at least 16 characters"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
 });
 

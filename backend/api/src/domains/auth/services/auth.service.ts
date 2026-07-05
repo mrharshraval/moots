@@ -86,7 +86,7 @@ export class AuthService {
       await this.repository.deleteVerificationTokens(email, tx);
       await this.repository.createVerificationToken({
         identifier: email,
-        token: otp,
+        token: crypto.createHash("sha256").update(otp).digest("hex"),
         expires,
       }, tx);
     });
@@ -101,19 +101,20 @@ export class AuthService {
   async verifyOtp(data: VerifyOtpInput) {
     const { email, otp } = data;
     
-    const token = await this.repository.findVerificationToken(email, otp);
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const token = await this.repository.findVerificationToken(email, otpHash);
     if (!token) {
-      throw new UnauthorizedError("Invalid OTP code");
+      throw new UnauthorizedError("Invalid or expired OTP");
     }
 
     if (new Date() > token.expires) {
-      await this.repository.deleteVerificationToken(otp);
-      throw new UnauthorizedError("OTP has expired");
+      await this.repository.deleteVerificationToken(otpHash);
+      throw new UnauthorizedError("Invalid or expired OTP");
     }
 
     await prisma.$transaction(async (tx) => {
       await this.repository.updateUser(email, { emailVerified: new Date() }, tx);
-      await this.repository.deleteVerificationToken(otp, tx);
+      await this.repository.deleteVerificationToken(otpHash, tx);
     });
   }
 
@@ -133,19 +134,29 @@ export class AuthService {
       throw new UnauthorizedError("Invalid credentials");
     }
 
-    if (password) {
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
-        await prisma.auditLog.create({
-          data: {
-            actorId: null,
-            event: "AUTH_FAILURE",
-            metadata: { identifier, userAgent, reason: "Password mismatch" },
-            ip: ipAddress,
-          }
-        });
-        throw new UnauthorizedError("Invalid credentials");
-      }
+    if (!user.password) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: null,
+          event: "AUTH_FAILURE",
+          metadata: { identifier, userAgent, reason: "No password set on account" },
+          ip: ipAddress,
+        }
+      });
+      throw new UnauthorizedError("Invalid credentials");
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: null,
+          event: "AUTH_FAILURE",
+          metadata: { identifier, userAgent, reason: "Password mismatch" },
+          ip: ipAddress,
+        }
+      });
+      throw new UnauthorizedError("Invalid credentials");
     }
 
     await this.repository.updateUserById(user.id, {

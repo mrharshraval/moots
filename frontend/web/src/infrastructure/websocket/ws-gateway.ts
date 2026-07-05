@@ -46,6 +46,13 @@ class WebSocketGateway {
       }
       this.token = token
       
+      if (!token) {
+        logger.error("WebSocketGateway: Aborting connection, no authentication token available")
+        this.intentionalDisconnect = true
+        this.isConnecting = false
+        return
+      }
+      
       if (this.intentionalDisconnect || this.connectionAttemptId !== currentAttemptId) {
         this.isConnecting = false
         return
@@ -56,9 +63,6 @@ class WebSocketGateway {
         : `req-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`
       
       let wsUrl = `${env.NEXT_PUBLIC_WS_URL}?requestId=${requestId}`
-      if (this.token) {
-        wsUrl += `&token=${encodeURIComponent(this.token)}`
-      }
 
       logger.info(`WebSocketGateway: Connecting to server`, { requestId, action: "ws-connect" })
       
@@ -68,6 +72,9 @@ class WebSocketGateway {
         this.isConnecting = false
         this.reconnectAttempts = 0
         logger.info(`WebSocketGateway: Connected successfully`, { requestId })
+        if (this.token) {
+          this.send("authenticate", { token: this.token })
+        }
         this.emit("open", null)
       }
 

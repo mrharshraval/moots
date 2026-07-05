@@ -1,6 +1,7 @@
 import { logger } from "@/shared/utils/logger"
-import { env } from "@/env"
 import { tokenManager } from "@/infrastructure/auth/token-manager"
+
+let refreshPromise: Promise<string | null> | null = null;
 
 interface RequestOptions extends RequestInit {
   actionName?: string
@@ -34,9 +35,6 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`)
   }
-  // #region agent log
-  fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'api-client.ts:pre-request',message:'apiRequest auth state before fetch',data:{url,method,hasToken:!!token,authHeaderAttached:headers.has('Authorization'),isRetry:!!fetchOptions._retry},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   
   fetchOptions.headers = headers
 
@@ -76,37 +74,40 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
       if (res.status === 401 && !fetchOptions._retry) {
         // Attempt to refresh
         try {
-          const refreshRes = await fetch(`/api/auth/token`, {
-            method: "GET",
-          })
-          // #region agent log
-          let backendRefreshStatus: number | null = null
-          try {
-            const backendRefreshRes = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
-            backendRefreshStatus = backendRefreshRes.status
-          } catch { backendRefreshStatus = -1 }
-          fetch('http://127.0.0.1:7419/ingest/d8e17749-7978-4108-99b8-55f9d5899bec',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2900a9'},body:JSON.stringify({sessionId:'2900a9',location:'api-client.ts:401-refresh',message:'401 refresh attempt results',data:{originalUrl:url,nextAuthTokenRouteStatus:refreshRes.status,backendRefreshRouteStatus:backendRefreshStatus},timestamp:Date.now(),hypothesisId:'B,C,D'})}).catch(()=>{});
-          // #endregion
+          if (!refreshPromise) {
+            refreshPromise = fetch(`/api/auth/token`, { method: "GET" })
+              .then(async (refreshRes) => {
+                if (refreshRes.ok) {
+                  const refreshData = await refreshRes.json();
+                  return refreshData.accessToken || null;
+                }
+                return null;
+              })
+              .catch((err) => {
+                logger.error("Failed to refresh token", { error: String(err) });
+                return null;
+              })
+              .finally(() => {
+                refreshPromise = null;
+              });
+          }
 
-          if (refreshRes.ok) {
-            const refreshData = await refreshRes.json()
-            const newAccessToken = refreshData.accessToken
+          const newAccessToken = await refreshPromise;
+          
+          if (newAccessToken) {
+            tokenManager.setToken(newAccessToken)
+            // Update headers with new token
+            const retryHeaders = new Headers(fetchOptions.headers)
+            retryHeaders.set("Authorization", `Bearer ${newAccessToken}`)
             
-            if (newAccessToken) {
-              tokenManager.setToken(newAccessToken)
-              // Update headers with new token
-              const retryHeaders = new Headers(fetchOptions.headers)
-              retryHeaders.set("Authorization", `Bearer ${newAccessToken}`)
-              
-              const retryOptions = {
-                ...fetchOptions,
-                headers: retryHeaders,
-                _retry: true
-              } as RequestOptions
+            const retryOptions = {
+              ...fetchOptions,
+              headers: retryHeaders,
+              _retry: true
+            } as RequestOptions
 
-              // Retry original request
-              return fetch(url, retryOptions)
-            }
+            // Retry original request
+            return fetch(url, retryOptions)
           }
         } catch (refreshErr) {
           logger.error("Failed to refresh token", { error: String(refreshErr) })
