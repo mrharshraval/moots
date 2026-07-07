@@ -141,32 +141,6 @@ export async function handleParsedMessage(
         const { sessionId, content, replyTo, clientMessageId } = payload;
         const finalClientMessageId = clientMessageId || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 11));
 
-        const session = sessionService.getSession(sessionId);
-        
-        const wsMsg = {
-          id: finalClientMessageId, 
-          clientMessageId: finalClientMessageId,
-          senderId: actorId, 
-          sender: { id: actorId }, 
-          content,
-          time: new Date().toISOString(),
-          reactions: {} as Record<string, string[]>,
-          seen: false,
-          replyTo: replyTo?.id ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined,
-          status: "DELIVERED"
-        };
-
-        if (session) {
-          session.messages.push({ ...wsMsg, _actorId: actorId });
-          if (session.messages.length > 100) {
-            session.messages.shift();
-          }
-          sessionService.broadcast(sessionId, {
-            type: "message",
-            payload: wsMsg,
-          }, registry, [actorId]);
-        }
-
         redis.lpush("moots:command:send_message", JSON.stringify({
           conversationId: sessionId,
           senderParticipantId: actorId,

@@ -63,22 +63,27 @@ export function handleDomainEvent(event: DomainEvent) {
       const { id, clientMessageId, conversationId, senderActorId, sender, content, createdAt, replyToId } = payload;
       const session = sessionService.getSession(conversationId);
       
-      if (session && clientMessageId) {
-        // Swap out the temporary client message with the real database message
-        const idx = session.messages.findIndex(m => m.clientMessageId === clientMessageId);
-        if (idx !== -1) {
-          session.messages[idx].id = id;
-          session.messages[idx].status = "PERSISTED";
-        }
+      const wsMsg = {
+        id,
+        clientMessageId,
+        senderId: senderActorId,
+        sender,
+        content,
+        time: createdAt,
+        reactions: {},
+        seen: false,
+        replyTo: replyToId ? { id: replyToId } : undefined,
+        status: "PERSISTED"
+      };
+
+      if (session) {
+        session.messages.push({ ...wsMsg, _actorId: senderActorId });
+        if (session.messages.length > 100) session.messages.shift();
       }
 
       sessionService.broadcast(conversationId, {
-        type: "message-persisted",
-        payload: {
-          id,
-          clientMessageId,
-          status: "PERSISTED"
-        },
+        type: "message",
+        payload: wsMsg,
       }, registry);
       break;
     }
