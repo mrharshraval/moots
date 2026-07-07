@@ -1,6 +1,6 @@
 import { MessagesRepository } from "../repositories/messages.repository.js";
 import { prisma } from "../../../database/index.js";
-import { NotFoundError } from "../../../shared/errors/AppError.js";
+import { NotFoundError, ForbiddenError } from "../../../shared/errors/AppError.js";
 import { EventBus } from "../../../shared/events/event-bus.js";
 import { MessageSerializer } from "./message-serializer.service.js";
 
@@ -137,6 +137,8 @@ export class MessagesService {
       const existingMessage = await this.repository.findById(messageId);
       if (!existingMessage) throw new NotFoundError("Message not found");
       
+      if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot edit a system or orphaned message");
+
       const senderParticipant: any = await tx.participant.findUnique({
         where: { id: existingMessage.senderParticipantId },
         select: { actorId: true }
@@ -176,38 +178,25 @@ export class MessagesService {
         throw new NotFoundError("Message not found or you don't have permission to react to it");
       }
 
-      const metadata = (message.metadata as any) || {};
-      const reactions = metadata.reactions || {};
+      const result = await this.repository.toggleReaction(messageId, participant.id, emoji, tx);
 
-      // Remove actor from all other reactions
-      for (const key in reactions) {
-        if (key !== emoji) {
-          reactions[key] = reactions[key].filter((id: string) => id !== actorId);
-          if (reactions[key].length === 0) {
-            delete reactions[key];
-          }
+      // We still need to broadcast all reactions to the client as a map
+      const allReactions = await this.repository.getReactions(messageId);
+      const reactionsMap: Record<string, string[]> = {};
+      for (const reaction of allReactions) {
+        if (!reactionsMap[reaction.emoji]) {
+          reactionsMap[reaction.emoji] = [];
         }
+        reactionsMap[reaction.emoji].push(reaction.participant.actorId);
       }
-
-      const list = reactions[emoji] || [];
-      const exists = list.includes(actorId);
-      reactions[emoji] = exists ? list.filter((id: string) => id !== actorId) : [...list, actorId];
-
-      if (reactions[emoji].length === 0) {
-        delete reactions[emoji];
-      }
-
-      metadata.reactions = reactions;
-
-      const updatedMessage = await this.repository.updateMetadata(messageId, metadata, tx);
 
       await EventBus.publish(tx, "reaction.updated", messageId, "Message", {
         messageId,
         conversationId: message.conversationId,
-        reactions,
+        reactions: reactionsMap,
       });
 
-      return updatedMessage;
+      return result;
     });
   }
 }

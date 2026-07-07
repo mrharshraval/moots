@@ -89,4 +89,38 @@ export class MessagesRepository {
       where: { id: messageId }
     });
   }
+
+  async toggleReaction(messageId: string, participantId: string, emoji: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const existing = await db.reaction.findUnique({
+      where: {
+        messageId_participantId_emoji: {
+          messageId,
+          participantId,
+          emoji,
+        }
+      }
+    });
+
+    if (existing) {
+      await db.reaction.delete({ where: { id: existing.id } });
+      return { action: 'removed', reaction: existing };
+    } else {
+      const reaction = await db.reaction.create({
+        data: {
+          messageId,
+          participantId,
+          emoji,
+        }
+      });
+      return { action: 'added', reaction };
+    }
+  }
+
+  async getReactions(messageId: string) {
+    return prisma.reaction.findMany({
+      where: { messageId },
+      include: { participant: { select: { actorId: true } } }
+    });
+  }
 }

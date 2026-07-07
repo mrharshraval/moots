@@ -1,8 +1,7 @@
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
+
 
 generator client {
   provider = "prisma-client-js"
@@ -206,7 +205,6 @@ model Actor {
   devices              Device[]
 
   messageReceipts  MessageReceipt[]
-  reactions        Reaction[]
   callParticipants CallParticipant[]
   createdInvites   GroupInvite[]
   reportsFiled     Report[]          @relation("ReportsFiled")
