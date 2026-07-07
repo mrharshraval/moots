@@ -83,7 +83,22 @@ export class MessagesService {
     });
   }
 
-  async getMessages(conversationId: string, limit?: number, cursor?: string) {
+  async getMessages(conversationId: string, limit?: number, cursor?: string, actorId?: string) {
+    if (!actorId) throw new NotFoundError("Conversation not found");
+
+    const participant = await prisma.participant.findUnique({
+      where: {
+        actorId_conversationId: {
+          actorId,
+          conversationId,
+        }
+      }
+    });
+
+    if (!participant) {
+      throw new NotFoundError("Conversation not found");
+    }
+
     const messages = await this.repository.findByCursor(conversationId, limit, cursor);
     
     const revealMap = new Map();
@@ -117,8 +132,20 @@ export class MessagesService {
     });
   }
 
-  async editMessage(messageId: string, newContent: string) {
+  async editMessage(messageId: string, newContent: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
+      const existingMessage = await this.repository.findById(messageId);
+      if (!existingMessage) throw new NotFoundError("Message not found");
+      
+      const senderParticipant: any = await tx.participant.findUnique({
+        where: { id: existingMessage.senderParticipantId },
+        select: { actorId: true }
+      });
+      
+      if (!senderParticipant || senderParticipant.actorId !== actorId) {
+        throw new NotFoundError("Message not found or you don't have permission to edit it");
+      }
+
       const message = await this.repository.edit(messageId, newContent, tx);
 
       await EventBus.publish(tx, "message.edited", messageId, "Message", {
@@ -135,6 +162,19 @@ export class MessagesService {
     return prisma.$transaction(async (tx) => {
       const message = await this.repository.findById(messageId);
       if (!message) throw new NotFoundError("Message not found");
+
+      const participant = await tx.participant.findUnique({
+        where: {
+          actorId_conversationId: {
+            actorId,
+            conversationId: message.conversationId,
+          }
+        }
+      });
+
+      if (!participant) {
+        throw new NotFoundError("Message not found or you don't have permission to react to it");
+      }
 
       const metadata = (message.metadata as any) || {};
       const reactions = metadata.reactions || {};

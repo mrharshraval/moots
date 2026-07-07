@@ -25,9 +25,9 @@ export class MessagesController {
 
   editInternal = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { newContent } = EditMessageInternalSchema.shape.body.parse(req.body);
+    const { newContent, actorId } = EditMessageInternalSchema.shape.body.parse(req.body);
     
-    const message = await this.service.editMessage(id as string, newContent);
+    const message = await this.service.editMessage(id as string, newContent, actorId);
     return sendSuccess(res, message);
   });
 
@@ -61,9 +61,14 @@ export class MessagesController {
   getHistory = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { limit, cursor } = req.query;
+    const actorId = (req as any).user?.actorId;
+
+    if (!actorId) {
+      return sendSuccess(res, { messages: [] }, { status: 401 });
+    }
 
     const limitNum = limit ? parseInt(limit as string, 10) : 50;
-    const messages = await this.service.getMessages(id as string, limitNum, cursor as string);
+    const messages = await this.service.getMessages(id as string, limitNum, cursor as string, actorId);
 
     return sendSuccess(res, { messages });
   });

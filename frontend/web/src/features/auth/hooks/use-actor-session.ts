@@ -24,8 +24,12 @@ export function useActorSession() {
       const token = localStorage.getItem("moots_guest_token");
       if (token) {
         const payload = decodeJwt(token);
-        if (payload?.sub) {
-          setGuestActorId(payload.sub);
+        if (payload) {
+          if (payload.actorId) {
+            setGuestActorId(payload.actorId);
+          } else if (payload.sub) {
+            setGuestActorId(payload.sub);
+          }
         }
       }
     }

@@ -63,9 +63,9 @@ export async function processCommands() {
     // 2. edit_message
     cmd = await client.rpop("moots:command:edit_message");
     while (cmd) {
-      const { messageId, newContent } = JSON.parse(cmd);
+      const { messageId, newContent, actorId } = JSON.parse(cmd);
       const messagesService = resolve("messagesService");
-      await messagesService.editMessage(messageId, newContent);
+      await messagesService.editMessage(messageId, newContent, actorId);
       cmd = await client.rpop("moots:command:edit_message");
     }
 

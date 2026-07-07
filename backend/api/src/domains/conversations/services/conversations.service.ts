@@ -89,6 +89,11 @@ export class ConversationsService {
       throw new NotFoundError("Not found");
     }
 
+    const isParticipant = conversation.participants.some((p: any) => p.actorId === actorId);
+    if (!isParticipant) {
+      throw new NotFoundError("Not found or no permission to access this conversation");
+    }
+
     if (clearOnly) {
       await this.repository.deleteMessages(conversationId);
       return { message: "Chat cleared" };

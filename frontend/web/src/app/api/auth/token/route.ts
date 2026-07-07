@@ -13,6 +13,8 @@ export async function GET() {
   const cookieStore = await cookies();
   const mootsSession = cookieStore.get("moots_session")?.value;
 
+  console.log({ "mootsSession": `${mootsSession}` }, { "cookieStore": cookieStore });
+
   if (!mootsSession) {
     return NextResponse.json(
       { error: "No session token available. Please sign in or start as guest." },
@@ -33,7 +35,7 @@ export async function GET() {
     if (refreshRes.ok) {
       const json = await refreshRes.json();
       const freshToken = json.data?.accessToken;
-      
+
       if (freshToken) {
         const response = NextResponse.json({ accessToken: freshToken });
         const setCookie = refreshRes.headers.get("Set-Cookie");
@@ -43,7 +45,7 @@ export async function GET() {
         return response;
       }
     }
-    
+
     return NextResponse.json(
       { error: "Session expired or invalid" },
       { status: 401 }

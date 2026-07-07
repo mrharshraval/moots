@@ -2,10 +2,13 @@ import { z } from "zod";
 
 export const TokenClaimsSchema = z.object({
   actorId: z.string().min(1),
-  // Can add exp, iat later if needed but usually standard jsonwebtoken handles those
+  type: z.string().optional(),
 });
 
 export type TokenClaims = z.infer<typeof TokenClaimsSchema>;
+
+export * from "./shared/types.js";
+export * from "./shared/errors.js";
 export * from "./events.js";
 
 // API Validations

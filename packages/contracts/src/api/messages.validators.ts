@@ -14,6 +14,7 @@ export const CreateMessageInternalSchema = z.object({
 export const EditMessageInternalSchema = z.object({
   body: z.object({
     newContent: z.string(),
+    actorId: z.string(),
   })
 });
 
