@@ -47,7 +47,7 @@ export function useChatSession(sessionId: string, session: Session | null) {
 
   const [peerActorId, setPeerActorId] = React.useState<string | null>(null)
   const [callState, setCallState] = React.useState<"idle" | "ringing_incoming" | "ringing_outgoing" | "active" | "ended">("idle")
-  const [callType, setCallType] = React.useState<"VOICE" | "VIDEO" | null>(null)
+  const [callType, setCallType] = React.useState<"AUDIO" | "VIDEO" | null>(null)
   const [callId, setCallId] = React.useState<string | null>(null)
   const [isAudioMuted, setIsAudioMuted] = React.useState(false)
   const [isVideoMuted, setIsVideoMuted] = React.useState(false)
@@ -108,7 +108,7 @@ export function useChatSession(sessionId: string, session: Session | null) {
     return pc
   }, [sessionId])
 
-  const initiateCall = React.useCallback(async (type: "VOICE" | "VIDEO") => {
+  const initiateCall = React.useCallback(async (type: "AUDIO" | "VIDEO") => {
     try {
       const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/calls`, {
         method: "POST",

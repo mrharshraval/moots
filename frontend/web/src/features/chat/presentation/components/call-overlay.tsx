@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button"
 
 export interface CallOverlayProps {
   callState: "idle" | "ringing_incoming" | "ringing_outgoing" | "active" | "ended"
-  callType: "VOICE" | "VIDEO" | null
+  callType: "AUDIO" | "VIDEO" | null
   peerDisplayName: string
   localStream: MediaStream | null
   remoteStream: MediaStream | null

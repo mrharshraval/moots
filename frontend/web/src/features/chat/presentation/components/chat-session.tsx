@@ -153,7 +153,7 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
               handleRevealIdentity={handleRevealIdentity}
               handleSendConnectionRequest={handleSendConnectionRequest}
               handleAcceptConnectionRequest={handleAcceptConnectionRequest}
-              onVoiceCall={() => initiateCall("VOICE")}
+              onVoiceCall={() => initiateCall("AUDIO")}
               onVideoCall={() => initiateCall("VIDEO")}
             />
           )}
