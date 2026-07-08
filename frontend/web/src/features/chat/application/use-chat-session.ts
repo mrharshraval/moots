@@ -105,7 +105,7 @@ export function useChatSession(sessionId: string, session: Session | null) {
       wsGateway.send("edit-message", {
         sessionId,
         messageId: editingMsg.id || editingMsg.clientMessageId,
-        content: text,
+        newContent: text,
       })
       useMessagesStore.getState().updateMessage(sessionId, editingMsg.id || editingMsg.clientMessageId || "", {
         content: text,
