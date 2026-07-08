@@ -155,6 +155,7 @@ export async function handleParsedMessage(
                 partnerNickname: partnerNickname || "Stranger",
                 partnerUsername: partnerUsername || null,
                 selfId: actorId,
+                partnerId: partnerId || null,
               },
             })
           );

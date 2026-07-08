@@ -6,6 +6,8 @@ import { ChatApi } from "../api/chat-api"
 import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
 import { getOrInitializeNickname } from "@/shared/utils/nickname"
 import { Session } from "@/providers/auth-provider"
+import { apiRequest } from "@/infrastructure/http/api-client"
+import { env } from "@/env"
 
 export function useChatSession(sessionId: string, session: Session | null) {
   const [userId, setUserId] = React.useState("")
@@ -42,6 +44,171 @@ export function useChatSession(sessionId: string, session: Session | null) {
       useMessagesStore.getState().setMessages(sessionId, updater)
     }
   }, [sessionId])
+
+  const [peerActorId, setPeerActorId] = React.useState<string | null>(null)
+  const [callState, setCallState] = React.useState<"idle" | "ringing_incoming" | "ringing_outgoing" | "active" | "ended">("idle")
+  const [callType, setCallType] = React.useState<"VOICE" | "VIDEO" | null>(null)
+  const [callId, setCallId] = React.useState<string | null>(null)
+  const [isAudioMuted, setIsAudioMuted] = React.useState(false)
+  const [isVideoMuted, setIsVideoMuted] = React.useState(false)
+
+  const [localStream, setLocalStream] = React.useState<MediaStream | null>(null)
+  const [remoteStream, setRemoteStream] = React.useState<MediaStream | null>(null)
+
+  const peerConnectionRef = React.useRef<RTCPeerConnection | null>(null)
+  const localStreamRef = React.useRef<MediaStream | null>(null)
+
+  const cleanupCall = React.useCallback(() => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = null
+    }
+    setLocalStream(null)
+    setRemoteStream(null)
+    setCallState("idle")
+    setCallId(null)
+    setCallType(null)
+    setIsAudioMuted(false)
+    setIsVideoMuted(false)
+  }, [])
+
+  const setupPeerConnection = React.useCallback((stream: MediaStream, cId: string, pActorId: string) => {
+    if (peerConnectionRef.current) return peerConnectionRef.current
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    })
+    peerConnectionRef.current = pc
+
+    stream.getTracks().forEach((track) => {
+      pc.addTrack(track, stream)
+    })
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && pActorId) {
+        wsGateway.send("webrtc:ice-candidate", {
+          sessionId,
+          callId: cId,
+          targetActorId: pActorId,
+          candidate: event.candidate,
+        })
+      }
+    }
+
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0])
+      }
+    }
+
+    return pc
+  }, [sessionId])
+
+  const initiateCall = React.useCallback(async (type: "VOICE" | "VIDEO") => {
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/calls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: sessionId, type }),
+      })
+      if (!res.ok) {
+        throw new Error("Failed to initiate call")
+      }
+      const data = await res.json()
+      const call = data.payload.call
+      
+      setCallId(call.id)
+      setCallType(type)
+      setCallState("ringing_outgoing")
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: type === "VIDEO",
+      })
+      setLocalStream(stream)
+      localStreamRef.current = stream
+    } catch (err) {
+      console.error("[initiateCall] failed", err)
+      cleanupCall()
+    }
+  }, [sessionId, cleanupCall])
+
+  const acceptCall = React.useCallback(async () => {
+    if (!callId || !peerActorId) return
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/calls/${callId}/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ACCEPT" }),
+      })
+      if (!res.ok) throw new Error("Failed to accept call")
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: callType === "VIDEO",
+      })
+      setLocalStream(stream)
+      localStreamRef.current = stream
+
+      setCallState("active")
+      setupPeerConnection(stream, callId, peerActorId)
+    } catch (err) {
+      console.error("[acceptCall] failed", err)
+      cleanupCall()
+    }
+  }, [callId, callType, peerActorId, cleanupCall, setupPeerConnection])
+
+  const declineCall = React.useCallback(async () => {
+    if (!callId) return
+    try {
+      await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/calls/${callId}/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "DECLINE" }),
+      })
+    } catch (err) {
+      console.error("[declineCall] failed", err)
+    } finally {
+      cleanupCall()
+    }
+  }, [callId, cleanupCall])
+
+  const endCall = React.useCallback(async () => {
+    if (!callId) return
+    try {
+      await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/calls/${callId}/end`, {
+        method: "POST",
+      })
+    } catch (err) {
+      console.error("[endCall] failed", err)
+    } finally {
+      cleanupCall()
+    }
+  }, [callId, cleanupCall])
+
+  const toggleMute = React.useCallback(() => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0]
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled
+        setIsAudioMuted(!audioTrack.enabled)
+      }
+    }
+  }, [])
+
+  const toggleCamera = React.useCallback(() => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0]
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled
+        setIsVideoMuted(!videoTrack.enabled)
+      }
+    }
+  }, [])
 
   const peerDisplayName = React.useMemo(() => {
     return peerUsername || peerNickname
@@ -190,6 +357,9 @@ export function useChatSession(sessionId: string, session: Session | null) {
     }
 
     const handleChatHistory = (payload: any) => {
+      if (payload.partnerId) {
+        setPeerActorId(payload.partnerId)
+      }
       const history = payload.messages.map((m: any) => ({
         id: m.id,
         clientMessageId: m.clientMessageId,
@@ -275,6 +445,9 @@ export function useChatSession(sessionId: string, session: Session | null) {
       if (payload.partnerNickname || payload.partnerUsername) {
          setPeerIdentity(payload.partnerNickname || "Stranger", payload.partnerUsername || null)
       }
+      if (payload.partnerId) {
+        setPeerActorId(payload.partnerId)
+      }
     }
 
     const handlePartnerDisconnected = () => {
@@ -292,6 +465,71 @@ export function useChatSession(sessionId: string, session: Session | null) {
     const handleConnectionRequest = () => setConnectionStatus("pending_received")
     const handleConnectionAccepted = () => setConnectionStatus("accepted")
 
+    const handleCallIncoming = (payload: any) => {
+      setCallId(payload.callId)
+      setCallType(payload.type)
+      setCallState("ringing_incoming")
+    }
+
+    const handleCallAccepted = async () => {
+      if (!localStreamRef.current || !callId || !peerActorId) return
+      setCallState("active")
+      const pc = setupPeerConnection(localStreamRef.current, callId, peerActorId)
+      try {
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        wsGateway.send("webrtc:offer", {
+          sessionId,
+          callId,
+          targetActorId: peerActorId,
+          offer,
+        })
+      } catch (err) {
+        console.error("Failed to create offer", err)
+      }
+    }
+
+    const handleWebRTCOffer = async (payload: any) => {
+      const { offer, senderId, callId: incomingCallId } = payload
+      if (!localStreamRef.current || !incomingCallId) return
+      const pc = setupPeerConnection(localStreamRef.current, incomingCallId, senderId)
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer))
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        wsGateway.send("webrtc:answer", {
+          sessionId,
+          callId: incomingCallId,
+          targetActorId: senderId,
+          answer,
+        })
+      } catch (err) {
+        console.error("Failed to handle offer", err)
+      }
+    }
+
+    const handleWebRTCAnswer = async (payload: any) => {
+      const { answer } = payload
+      if (peerConnectionRef.current) {
+        try {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer))
+        } catch (err) {
+          console.error("Failed to set remote answer", err)
+        }
+      }
+    }
+
+    const handleWebRTCIceCandidate = async (payload: any) => {
+      const { candidate } = payload
+      if (peerConnectionRef.current) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch (err) {
+          console.error("Failed to add ice candidate", err)
+        }
+      }
+    }
+
     wsGateway.on("open", handleOpen)
     wsGateway.on("close", handleClose)
     wsGateway.on("chat-history", handleChatHistory)
@@ -305,6 +543,14 @@ export function useChatSession(sessionId: string, session: Session | null) {
     wsGateway.on("participant:identity-revealed", handleIdentityRevealed)
     wsGateway.on("connection:request", handleConnectionRequest)
     wsGateway.on("connection:accepted", handleConnectionAccepted)
+    wsGateway.on("call:incoming", handleCallIncoming)
+    wsGateway.on("call:accepted", handleCallAccepted)
+    wsGateway.on("call:declined", cleanupCall)
+    wsGateway.on("call:ended", cleanupCall)
+    wsGateway.on("call:missed", cleanupCall)
+    wsGateway.on("webrtc:offer", handleWebRTCOffer)
+    wsGateway.on("webrtc:answer", handleWebRTCAnswer)
+    wsGateway.on("webrtc:ice-candidate", handleWebRTCIceCandidate)
 
     window.addEventListener("focus", sendReadReceipt)
     document.addEventListener("visibilitychange", sendReadReceipt)
@@ -325,6 +571,14 @@ export function useChatSession(sessionId: string, session: Session | null) {
       wsGateway.off("participant:identity-revealed", handleIdentityRevealed)
       wsGateway.off("connection:request", handleConnectionRequest)
       wsGateway.off("connection:accepted", handleConnectionAccepted)
+      wsGateway.off("call:incoming", handleCallIncoming)
+      wsGateway.off("call:accepted", handleCallAccepted)
+      wsGateway.off("call:declined", cleanupCall)
+      wsGateway.off("call:ended", cleanupCall)
+      wsGateway.off("call:missed", cleanupCall)
+      wsGateway.off("webrtc:offer", handleWebRTCOffer)
+      wsGateway.off("webrtc:answer", handleWebRTCAnswer)
+      wsGateway.off("webrtc:ice-candidate", handleWebRTCIceCandidate)
 
       window.removeEventListener("focus", sendReadReceipt)
       document.removeEventListener("visibilitychange", sendReadReceipt)
@@ -362,6 +616,20 @@ export function useChatSession(sessionId: string, session: Session | null) {
     handleSend,
     messages,
     isEngaged,
-    lastUserMsgId
+    lastUserMsgId,
+    // Calling features
+    callState,
+    callType,
+    callId,
+    isAudioMuted,
+    isVideoMuted,
+    localStream,
+    remoteStream,
+    initiateCall,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleCamera
   }
 }

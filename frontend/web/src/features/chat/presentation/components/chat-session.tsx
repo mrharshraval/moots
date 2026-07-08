@@ -13,6 +13,7 @@ import { ActionBar } from "@/features/chat/presentation/components/action-bar"
 import { SessionDisconnected } from "@/features/chat/presentation/components/session-disconnected"
 import { TouchContextSheet } from "@/features/chat/presentation/components/touch-context-sheet"
 import { useMatchmakingFlow } from "@/features/matchmaking"
+import { CallOverlay } from "./call-overlay"
 
 export interface ChatSessionProps {
   sessionId: string
@@ -52,7 +53,20 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     handleSend,
     messages,
     isEngaged,
-    lastUserMsgId
+    lastUserMsgId,
+    // Calling features
+    callState,
+    callType,
+    isAudioMuted,
+    isVideoMuted,
+    localStream,
+    remoteStream,
+    initiateCall,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleCamera
   } = useChatSession(sessionId, session)
 
   const { startMatchmaking: startLocalMatching, cancelMatchmaking: cancelLocalMatching } = useMatchmakingFlow()
@@ -139,6 +153,8 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
               handleRevealIdentity={handleRevealIdentity}
               handleSendConnectionRequest={handleSendConnectionRequest}
               handleAcceptConnectionRequest={handleAcceptConnectionRequest}
+              onVoiceCall={() => initiateCall("VOICE")}
+              onVideoCall={() => initiateCall("VIDEO")}
             />
           )}
 
@@ -222,6 +238,22 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
           onClose={() => setShowTouchSheet(false)}
         />
       )}
+
+      {/* Call Overlay */}
+      <CallOverlay
+        callState={callState}
+        callType={callType}
+        peerDisplayName={peerDisplayName}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        isAudioMuted={isAudioMuted}
+        isVideoMuted={isVideoMuted}
+        acceptCall={acceptCall}
+        declineCall={declineCall}
+        endCall={endCall}
+        toggleMute={toggleMute}
+        toggleCamera={toggleCamera}
+      />
     </div>
   )
 }

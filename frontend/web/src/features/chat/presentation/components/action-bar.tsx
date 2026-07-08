@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CheckCheck, Heart } from "lucide-react"
+import { CheckCheck, Heart, Phone, Video } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 
 export interface ActionBarProps {
@@ -10,6 +10,8 @@ export interface ActionBarProps {
   handleRevealIdentity: () => void
   handleSendConnectionRequest: () => void
   handleAcceptConnectionRequest: () => void
+  onVoiceCall?: () => void
+  onVideoCall?: () => void
 }
 
 export function ActionBar({
@@ -19,7 +21,9 @@ export function ActionBar({
   isUserLoggedIn,
   handleRevealIdentity,
   handleSendConnectionRequest,
-  handleAcceptConnectionRequest
+  handleAcceptConnectionRequest,
+  onVoiceCall,
+  onVideoCall
 }: ActionBarProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/10 shrink-0">
@@ -37,7 +41,17 @@ export function ActionBar({
           </span>
         )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        {connectionStatus === "accepted" && (
+          <>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVoiceCall}>
+              <Phone className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVideoCall}>
+              <Video className="w-4 h-4" />
+            </Button>
+          </>
+        )}
         {!hasRevealedIdentity && isUserLoggedIn && (
           <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={handleRevealIdentity}>
             Reveal Identity
