@@ -193,7 +193,7 @@ export class MessagesService {
 
   async deleteMessage(messageId: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
-      const existingMessage = await this.repository.findById(messageId);
+      const existingMessage = await this.repository.findById(messageId, tx);
       if (!existingMessage) throw new NotFoundError("Message not found");
 
       if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot delete a system or orphaned message");
@@ -220,7 +220,7 @@ export class MessagesService {
 
   async editMessage(messageId: string, newContent: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
-      const existingMessage = await this.repository.findById(messageId);
+      const existingMessage = await this.repository.findById(messageId, tx);
       if (!existingMessage) throw new NotFoundError("Message not found");
       
       if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot edit a system or orphaned message");
@@ -260,7 +260,7 @@ export class MessagesService {
 
   async toggleReaction(messageId: string, emoji: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
-      const message = await this.repository.findById(messageId);
+      const message = await this.repository.findById(messageId, tx);
       if (!message) throw new NotFoundError("Message not found");
 
       const participant = await tx.participant.findUnique({
@@ -279,7 +279,7 @@ export class MessagesService {
       const result = await this.repository.toggleReaction(messageId, participant.id, emoji, tx);
 
       // We still need to broadcast all reactions to the client as a map
-      const allReactions = await this.repository.getReactions(messageId);
+      const allReactions = await this.repository.getReactions(messageId, tx);
       const reactionsMap: Record<string, string[]> = {};
       for (const reaction of allReactions) {
         if (!reactionsMap[reaction.emoji]) {

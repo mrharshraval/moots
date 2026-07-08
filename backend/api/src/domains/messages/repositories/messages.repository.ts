@@ -87,8 +87,9 @@ export class MessagesRepository {
     });
   }
 
-  async findById(messageId: string) {
-    return prisma.message.findUnique({
+  async findById(messageId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.message.findUnique({
       where: { id: messageId }
     });
   }
@@ -120,8 +121,9 @@ export class MessagesRepository {
     }
   }
 
-  async getReactions(messageId: string) {
-    return prisma.reaction.findMany({
+  async getReactions(messageId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.reaction.findMany({
       where: { messageId },
       include: { participant: { select: { actorId: true } } }
     });
