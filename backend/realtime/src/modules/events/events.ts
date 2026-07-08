@@ -132,6 +132,22 @@ export function handleDomainEvent(event: DomainEvent) {
       break;
     }
 
+    case "message.deleted": {
+      const payload = event.payload;
+      const { messageId, conversationId } = payload;
+      const session = sessionService.getSession(conversationId);
+
+      if (session) {
+        session.messages = session.messages.filter((m: any) => m.id !== messageId);
+      }
+
+      sessionService.broadcast(conversationId, {
+        type: "message-deleted",
+        payload: { messageId },
+      }, registry);
+      break;
+    }
+
     case "reaction.updated": {
       const payload = event.payload;
       const { messageId, conversationId, reactions } = payload;

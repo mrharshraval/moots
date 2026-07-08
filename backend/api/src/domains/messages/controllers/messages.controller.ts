@@ -7,6 +7,7 @@ import {
   EditMessageInternalSchema,
   ReactionInternalSchema,
   ReadInternalSchema,
+  DeleteMessageInternalSchema,
 } from "@moots/contracts";
 import { EventBus } from "../../../shared/events/event-bus.js";
 
@@ -36,6 +37,14 @@ export class MessagesController {
     const { emoji, actorId } = ReactionInternalSchema.shape.body.parse(req.body);
     
     const message = await this.service.toggleReaction(id as string, emoji, actorId);
+    return sendSuccess(res, message);
+  });
+
+  deleteInternal = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { actorId } = DeleteMessageInternalSchema.shape.body.parse(req.body);
+    
+    const message = await this.service.deleteMessage(id as string, actorId);
     return sendSuccess(res, message);
   });
 

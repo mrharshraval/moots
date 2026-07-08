@@ -53,46 +53,6 @@ export async function processCommands() {
       cmd = await client.rpop("moots:command:provision_conversation");
     }
 
-    // 1. send_message
-    cmd = await client.rpop("moots:command:send_message");
-    while (cmd) {
-      processedCount++;
-      const data = JSON.parse(cmd);
-      const messagesService = resolve("messagesService");
-      await messagesService.sendMessage(data);
-      cmd = await client.rpop("moots:command:send_message");
-    }
-
-    // 2. edit_message
-    cmd = await client.rpop("moots:command:edit_message");
-    while (cmd) {
-      processedCount++;
-      const { messageId, newContent, actorId } = JSON.parse(cmd);
-      const messagesService = resolve("messagesService");
-      await messagesService.editMessage(messageId, newContent, actorId);
-      cmd = await client.rpop("moots:command:edit_message");
-    }
-
-    // 3. send_reaction
-    cmd = await client.rpop("moots:command:send_reaction");
-    while (cmd) {
-      processedCount++;
-      const { messageId, emoji, actorId } = JSON.parse(cmd);
-      const messagesService = resolve("messagesService");
-      await messagesService.toggleReaction(messageId, emoji, actorId);
-      cmd = await client.rpop("moots:command:send_reaction");
-    }
-
-    // 4. mark_read
-    cmd = await client.rpop("moots:command:mark_read");
-    while (cmd) {
-      processedCount++;
-      const { conversationId, actorId } = JSON.parse(cmd);
-      const messagesService = resolve("messagesService");
-      await messagesService.markRead(conversationId, actorId);
-      cmd = await client.rpop("moots:command:mark_read");
-    }
-
     // 5. connection_request
     cmd = await client.rpop("moots:command:connection_request");
     while (cmd) {

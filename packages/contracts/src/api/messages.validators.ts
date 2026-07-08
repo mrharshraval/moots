@@ -31,3 +31,10 @@ export const ReadInternalSchema = z.object({
     actorId: z.string(),
   })
 });
+
+export const DeleteMessageInternalSchema = z.object({
+  body: z.object({
+    actorId: z.string(),
+  })
+});
+

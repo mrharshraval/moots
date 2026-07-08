@@ -5,6 +5,27 @@ import { structuredLog } from "../../lib/logger.js";
 import { redis } from "../../lib/redis.js";
 import crypto from "crypto";
 import { verifyToken } from "../auth/auth.js";
+import { env } from "../../env.js";
+
+async function callInternalApi(endpoint: string, body: any, requestId: string) {
+  const url = `${env.API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Service-Key": env.INTERNAL_SERVICE_KEY,
+      "X-Request-ID": requestId,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Internal API call to ${endpoint} failed (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
 
 export async function handleParsedMessage(
   connectionId: string, 
@@ -144,8 +165,11 @@ export async function handleParsedMessage(
       case "read-messages": {
         if (!actorId) return;
         const { sessionId } = payload;
-        redis.lpush("moots:command:mark_read", JSON.stringify({ conversationId: sessionId, actorId })).catch((err: any) => {
-          structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+        callInternalApi("/internal/v1/messages/read", {
+          conversationId: sessionId,
+          actorId,
+        }, requestId).catch((err: any) => {
+          structuredLog("INTERNAL_API_ERROR", connectionId, { details: err.message, type, payload }, "error", conn);
         });
         break;
       }
@@ -155,14 +179,14 @@ export async function handleParsedMessage(
         const { sessionId, content, replyTo, clientMessageId } = payload;
         const finalClientMessageId = clientMessageId || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 11));
 
-        redis.lpush("moots:command:send_message", JSON.stringify({
+        callInternalApi("/internal/v1/messages", {
           conversationId: sessionId,
           senderParticipantId: actorId,
           content,
           clientMessageId: finalClientMessageId,
           replyToId: replyTo?.id,
-        })).catch((err: any) => {
-          structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+        }, requestId).catch((err: any) => {
+          structuredLog("INTERNAL_API_ERROR", connectionId, { details: err.message, type, payload }, "error", conn);
         });
         break;
       }
@@ -170,12 +194,11 @@ export async function handleParsedMessage(
       case "edit-message": {
         if (!actorId) return;
         const { sessionId, messageId, newContent } = payload;
-        redis.lpush("moots:command:edit_message", JSON.stringify({
-          messageId,
+        callInternalApi(`/internal/v1/messages/${messageId}/edit`, {
           newContent,
           actorId,
-        })).catch((err: any) => {
-          structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+        }, requestId).catch((err: any) => {
+          structuredLog("INTERNAL_API_ERROR", connectionId, { details: err.message, type, payload }, "error", conn);
         });
         break;
       }
@@ -183,15 +206,26 @@ export async function handleParsedMessage(
       case "send-reaction": {
         if (!actorId) return;
         const { sessionId, messageId, emoji } = payload;
-        redis.lpush("moots:command:send_reaction", JSON.stringify({
-          messageId,
+        callInternalApi(`/internal/v1/messages/${messageId}/reaction`, {
           emoji,
           actorId,
-        })).catch((err: any) => {
-          structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+        }, requestId).catch((err: any) => {
+          structuredLog("INTERNAL_API_ERROR", connectionId, { details: err.message, type, payload }, "error", conn);
         });
         break;
       }
+
+      case "delete-message": {
+        if (!actorId) return;
+        const { sessionId, messageId } = payload;
+        callInternalApi(`/internal/v1/messages/${messageId}/delete`, {
+          actorId,
+        }, requestId).catch((err: any) => {
+          structuredLog("INTERNAL_API_ERROR", connectionId, { details: err.message, type, payload }, "error", conn);
+        });
+        break;
+      }
+
 
       case "typing-status": {
         if (!actorId) return;

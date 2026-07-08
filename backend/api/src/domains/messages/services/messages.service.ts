@@ -191,8 +191,22 @@ export class MessagesService {
     return messages.map((msg: any) => this.serializer.serialize(msg, revealMap, personaMap, profileMap));
   }
 
-  async deleteMessage(messageId: string) {
+  async deleteMessage(messageId: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
+      const existingMessage = await this.repository.findById(messageId);
+      if (!existingMessage) throw new NotFoundError("Message not found");
+
+      if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot delete a system or orphaned message");
+
+      const senderParticipant: any = await tx.participant.findUnique({
+        where: { id: existingMessage.senderParticipantId },
+        select: { actorId: true }
+      });
+
+      if (!senderParticipant || senderParticipant.actorId !== actorId) {
+        throw new NotFoundError("Message not found or you don't have permission to delete it");
+      }
+
       const message = await this.repository.softDelete(messageId, tx);
 
       await EventBus.publish(tx, "message.deleted", messageId, "Message", {

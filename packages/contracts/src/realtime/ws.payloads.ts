@@ -19,6 +19,11 @@ export const JoinChatPayloadSchema = z.object({
   sessionId: z.string().min(1),
 });
 
+export const DeleteMessagePayloadSchema = z.object({
+  sessionId: z.string().min(1),
+  messageId: z.string().min(1),
+});
+
 export const SendMessagePayloadSchema = z.object({
   sessionId: z.string().min(1),
   content: z.string().min(1),
@@ -93,6 +98,7 @@ export const InboundMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("join-queue"), payload: JoinQueuePayloadSchema }),
   z.object({ type: z.literal("cancel-queue"), payload: CancelQueuePayloadSchema }),
   z.object({ type: z.literal("join-chat"), payload: JoinChatPayloadSchema }),
+  z.object({ type: z.literal("delete-message"), payload: DeleteMessagePayloadSchema }),
   z.object({ type: z.literal("send-message"), payload: SendMessagePayloadSchema }),
   z.object({ type: z.literal("edit-message"), payload: EditMessagePayloadSchema }),
   z.object({ type: z.literal("send-reaction"), payload: SendReactionPayloadSchema }),
