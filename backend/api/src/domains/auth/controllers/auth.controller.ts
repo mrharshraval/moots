@@ -80,7 +80,11 @@ export class AuthController {
       this.setSessionCookie(res, data.actorSessionToken);
     }
 
-    return sendSuccess(res, { accessToken: data.accessToken, user: data.user });
+    return sendSuccess(res, { 
+      accessToken: data.accessToken, 
+      user: data.user,
+      unreadNotificationCount: data.unreadNotificationCount 
+    });
   });
 
   refresh = asyncHandler(async (req: Request, res: Response) => {
@@ -95,6 +99,9 @@ export class AuthController {
     // Set new HTTP-only cookie
     this.setSessionCookie(res, data.actorSessionToken);
 
-    return sendSuccess(res, { accessToken: data.accessToken });
+    return sendSuccess(res, { 
+      accessToken: data.accessToken,
+      unreadNotificationCount: data.unreadNotificationCount 
+    });
   });
 }

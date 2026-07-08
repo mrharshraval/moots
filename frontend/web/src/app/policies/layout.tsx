@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 import { Separator } from "@/shared/ui/separator"
 import { LandingHeader } from "@/shared/layout/landing-header"
 

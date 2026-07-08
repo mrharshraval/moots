@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 

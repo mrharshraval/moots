@@ -4,7 +4,7 @@ import { logger } from "../logger.js";
 import { DomainEventSchema } from "@moots/contracts";
 
 export class OutboxService {
-  async processOutbox() {
+  async processOutbox(): Promise<number> {
     const redisService = resolve("redisService");
 
     // Find unpublished events
@@ -42,5 +42,7 @@ export class OutboxService {
       }
       logger.debug(`Published ${events.length} domain events to Redis`);
     }
+
+    return events.length;
   }
 }

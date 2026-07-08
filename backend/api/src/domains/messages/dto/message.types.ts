@@ -1,4 +1,4 @@
-﻿import { ContentType, IdentityState } from "@prisma/client";
+import { ContentType, IdentityState } from "@prisma/client";
 
 export interface Message {
   id:                  string;
@@ -31,4 +31,6 @@ export interface SerializedMessage {
   sender:  { type: 'persona', data: Persona | undefined } | { type: 'profile', data: UserProfile | undefined };
   content: string;
   sentAt:  Date;
+  metadata?: any;
+  receipts?: Record<string, string>;
 }

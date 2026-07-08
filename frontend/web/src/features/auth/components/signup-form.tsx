@@ -10,6 +10,7 @@ import { Label } from "@/shared/ui/label";
 import { toast } from "sonner";
 import { Mail, Lock } from "lucide-react";
 import { apiRequest } from "@/infrastructure/http/api-client";
+import { env } from "@/env";
 
 export function SignupForm() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export function SignupForm() {
     setLoading(true);
 
     try {
-      const res = await apiRequest("/api/auth/register", {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

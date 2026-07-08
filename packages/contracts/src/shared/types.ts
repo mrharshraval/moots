@@ -49,7 +49,15 @@ export interface MessageDto {
   createdAt: string;
   isEdited: boolean;
   replyToId: string | null;
-  metadata: any | null;
+  metadata: {
+    mentions?: string[];
+    linkPreview?: {
+      title: string;
+      url: string;
+      image?: string;
+    };
+  } | null;
+  receipts?: Record<string, ReceiptStatus>; // mapping of actorId to ReceiptStatus
 }
 
 export interface ConversationDto {

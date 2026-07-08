@@ -24,6 +24,11 @@ export class MessageSerializer {
       sender,
       content: message.content,
       sentAt:  message.createdAt,
+      metadata: (message as any).metadata,
+      receipts: (message as any).receipts?.reduce((acc: any, r: any) => {
+        acc[r.actorId] = r.status;
+        return acc;
+      }, {})
     };
   }
 }

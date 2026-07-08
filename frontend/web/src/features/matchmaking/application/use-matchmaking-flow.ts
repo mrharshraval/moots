@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import { useMatchmakingStore } from "../presentation/store/matchmaking-store"
 import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
 import { useActorSession } from "@/features/auth"
+import { getAccessToken } from "@/providers/auth-provider"
 
 export function useMatchmakingFlow() {
   const router = useRouter()
@@ -62,11 +63,8 @@ export function useMatchmakingFlow() {
     setStatus("searching")
     setMatchedSessionId(null)
 
-    wsGateway.connect()
-
     const sendJoin = () => {
       wsGateway.send("join-queue", {
-        userId: actorId,
         nickname: displayName,
         username: username,
         interests: activeInterests,
@@ -75,21 +73,45 @@ export function useMatchmakingFlow() {
       })
     }
 
-    if (wsGateway.readyState === 1) {
-      sendJoin()
-    } else {
-      const handleOpen = () => {
+    const doConnect = () => {
+      wsGateway.connect()
+      if (wsGateway.readyState === 1) {
         sendJoin()
-        wsGateway.off("open", handleOpen)
+      } else {
+        const handleOpen = () => {
+          sendJoin()
+          wsGateway.off("open", handleOpen)
+        }
+        wsGateway.on("open", handleOpen)
       }
-      wsGateway.on("open", handleOpen)
+    }
+
+    // If the auth token is already available, connect immediately.
+    // Otherwise, poll for up to 5 seconds (covers the auto-guest-login round trip).
+    if (getAccessToken()) {
+      doConnect()
+    } else {
+      const maxWait = 5000
+      const interval = 200
+      let elapsed = 0
+      const poll = setInterval(() => {
+        elapsed += interval
+        if (getAccessToken()) {
+          clearInterval(poll)
+          doConnect()
+        } else if (elapsed >= maxWait) {
+          clearInterval(poll)
+          // Token never arrived — give up and reset status
+          setStatus("idle")
+        }
+      }, interval)
     }
   }
 
   const cancelMatchmaking = () => {
     setStatus("idle")
     if (wsGateway.readyState === 1) {
-      wsGateway.send("leave-queue", {}) 
+      wsGateway.send("cancel-queue", {}) 
     }
   }
 

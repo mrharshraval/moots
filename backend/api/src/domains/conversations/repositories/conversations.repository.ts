@@ -1,17 +1,19 @@
 import { prisma } from "../../../database/index.js";
-import { Conversation, Participant, Message, Connection, ConnectionStatus, ConversationStatus, Prisma } from "@prisma/client";
+import { Conversation, Participant, Message, Connection, ConnectionStatus, ConversationStatus, Prisma, ParticipantRole } from "@prisma/client";
 
 export class ConversationsRepository {
-  async createConversation(data: { id: string; policyId: string; type: any; status: any; participants: { actorId: string; persona?: { displayName: string; avatarSeed: string; } }[] }) {
+  async createConversation(data: { id?: string; name?: string; policyId?: string; type: any; status: any; participants: { actorId: string; role?: string; persona?: { displayName: string; avatarSeed: string; } }[] }) {
     return prisma.conversation.create({
       data: {
         id: data.id,
+        name: data.name,
         policyId: data.policyId,
         type: data.type,
         status: data.status,
         participants: {
           create: data.participants.map(p => ({
-            actorId: p.actorId,
+            actor: { connect: { id: p.actorId } },
+            role: (p.role as ParticipantRole) || "MEMBER",
             ...(p.persona ? {
               persona: {
                 create: {

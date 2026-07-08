@@ -1,5 +1,5 @@
 import { logger } from "@/shared/utils/logger";
-import { getSession, signOut } from "next-auth/react";
+import { getAccessToken, triggerRefresh } from "@/providers/auth-provider";
 
 interface RequestOptions extends RequestInit {
   actionName?: string;
@@ -29,15 +29,7 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
   // Try to attach token
   let tokenToUse = options.token;
   if (!tokenToUse && !headers.has("Authorization")) {
-    const session = await getSession();
-    if ((session as any)?.accessToken) {
-      tokenToUse = (session as any).accessToken;
-    } else if (typeof window !== "undefined") {
-      const guestToken = localStorage.getItem("moots_guest_token");
-      if (guestToken) {
-        tokenToUse = guestToken;
-      }
-    }
+    tokenToUse = getAccessToken() || undefined;
   }
 
   if (tokenToUse) {
@@ -77,11 +69,21 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
       logger.info(`Response received: ${method} ${url} - Status ${res.status}`, postPayload);
     } else {
       if (res.status === 401) {
-        // If we hit a 401 and there's a token, it means our session is expired or invalid.
-        // We log the user out since NextAuth should handle token refreshes in the background.
-        logger.warn(`Unauthorized request: ${method} ${url}. Logging out.`, postPayload);
-        if (typeof window !== "undefined") {
-          await signOut({ redirect: false });
+        logger.warn(`Unauthorized request: ${method} ${url}. Attempting to refresh token.`, postPayload);
+        const newSession = await triggerRefresh();
+        
+        if (newSession?.accessToken) {
+           // Retry request with new token
+           headers.set("Authorization", `Bearer ${newSession.accessToken}`);
+           fetchOptions.headers = headers;
+           return fetch(url, fetchOptions); // Note: Simple retry, ignoring logging for retry right now
+        } else {
+           logger.error(`Refresh failed for 401 request: ${method} ${url}. Redirecting to login.`, postPayload);
+           if (typeof window !== "undefined") {
+             window.location.href = "/login";
+             // Return a never-resolving promise to pause execution while the browser navigates
+             return new Promise<Response>(() => {});
+           }
         }
       }
 

@@ -1,4 +1,4 @@
-import { getSession } from "next-auth/react"
+import { getAccessToken } from "@/providers/auth-provider"
 import { env } from "@/env"
 import { logger } from "@/shared/utils/logger"
 
@@ -31,14 +31,9 @@ class WebSocketGateway {
     try {
       let token: string | null = null;
       try {
-        const session = await getSession();
-        if ((session as any)?.accessToken) {
-          token = (session as any).accessToken;
-        } else if (typeof window !== "undefined") {
-          const guestToken = localStorage.getItem("moots_guest_token");
-          if (guestToken) {
-            token = guestToken;
-          }
+        const currentToken = getAccessToken();
+        if (currentToken) {
+          token = currentToken;
         }
       } catch (e) {
         console.error("Failed to fetch session for WS", e);
@@ -47,9 +42,9 @@ class WebSocketGateway {
       this.token = token;
       
       if (!token) {
-        logger.error("WebSocketGateway: Aborting connection, no authentication token available")
-        this.intentionalDisconnect = true
+        logger.warn("WebSocketGateway: No authentication token yet, deferring connection")
         this.isConnecting = false
+        // Do NOT set intentionalDisconnect — the caller may retry once a token is available
         return
       }
       

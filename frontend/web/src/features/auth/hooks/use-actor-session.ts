@@ -1,39 +1,18 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/providers/auth-provider";
 import { getOrInitializeNickname } from "@/shared/utils/nickname";
 import { useEffect, useState } from "react";
 
-function decodeJwt(token: string) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch (e) {
-    return null;
-  }
-}
+// decodeJwt removed
 
 export function useActorSession() {
   const { data: session, status } = useSession();
-  const [guestActorId, setGuestActorId] = useState<string | null>(null);
   const [guestNickname, setGuestNickname] = useState<string>("Guest User");
 
   useEffect(() => {
     setGuestNickname(getOrInitializeNickname());
-    
-    if (status === "unauthenticated") {
-      const token = localStorage.getItem("moots_guest_token");
-      if (token) {
-        const payload = decodeJwt(token);
-        if (payload) {
-          if (payload.actorId) {
-            setGuestActorId(payload.actorId);
-          } else if (payload.sub) {
-            setGuestActorId(payload.sub);
-          }
-        }
-      }
-    }
-  }, [status]);
+  }, []);
 
   if (status === "loading") {
     return {
@@ -47,18 +26,19 @@ export function useActorSession() {
   }
 
   if (session?.user) {
+    const isGuest = session.user.name === "Guest" && !session.user.username;
     return {
       actorId: session.user.id,
-      isGuest: false,
-      displayName: session.user.name || (session.user as any).username || "User",
-      username: (session.user as any).username,
-      image: session.user.image,
+      isGuest,
+      displayName: isGuest ? guestNickname : (session.user.name || session.user.username || "User"),
+      username: session.user.username || null,
+      image: session.user.image || null,
       isLoading: false
     };
   }
 
   return {
-    actorId: guestActorId || "guest-pending",
+    actorId: "guest-pending",
     isGuest: true,
     displayName: guestNickname,
     username: null,

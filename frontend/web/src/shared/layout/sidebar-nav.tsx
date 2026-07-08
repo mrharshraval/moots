@@ -46,7 +46,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/shared/ui/dropdown-menu"
-import { useSession, signOut } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 import { getOrInitializeNickname } from "@/shared/utils/nickname"
 import { ProfileDialog } from "@/features/profile"
 import { SettingsDialog } from "@/features/settings"
@@ -75,7 +75,7 @@ const getUserInitials = (name?: string | null, email?: string | null) => {
 export function SidebarNav() {
   const pathname = usePathname()
   const { state, setOpen, isMobile } = useSidebar()
-  const { data: session } = useSession()
+  const { data: session, signOut } = useSession()
   const [helpOpen, setHelpOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [profileOpen, setProfileOpen] = React.useState(false)
@@ -371,7 +371,7 @@ export function SidebarNav() {
                     </DropdownMenuSub>
                     <DropdownMenuSeparator className="my-1 bg-border/50" />
                     <DropdownMenuItem
-                      onClick={() => signOut({ callbackUrl: "/login" })}
+                      onClick={() => signOut({ redirect: true })}
                       className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer focus:text-destructive focus:bg-destructive/10"
                     >
                       <div className="flex items-center justify-center size-8 shrink-0">

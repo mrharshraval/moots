@@ -5,7 +5,7 @@ import { ConversationRepository } from "@/features/conversations/repositories/co
 import { ChatApi } from "../api/chat-api"
 import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
 import { getOrInitializeNickname } from "@/shared/utils/nickname"
-import { Session } from "next-auth"
+import { Session } from "@/providers/auth-provider"
 
 export function useChatSession(sessionId: string, session: Session | null) {
   const [userId, setUserId] = React.useState("")
@@ -252,10 +252,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
       })
     }
 
-    const handleMessagePersisted = (payload: any) => {
-      useMessagesStore.getState().updateMessage(sessionId, payload.clientMessageId, { id: payload.id, status: "PERSISTED" })
-    }
-
     const handleReactionUpdate = (payload: any) => {
       useMessagesStore.getState().updateMessage(sessionId, payload.messageId, { reactions: payload.reactions })
     }
@@ -300,7 +296,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
     wsGateway.on("close", handleClose)
     wsGateway.on("chat-history", handleChatHistory)
     wsGateway.on("message", handleMessage)
-    wsGateway.on("message-persisted", handleMessagePersisted)
     wsGateway.on("reaction-update", handleReactionUpdate)
     wsGateway.on("partner-seen-messages", handlePartnerSeenMessages)
     wsGateway.on("message-edited", handleMessageEdited)
@@ -321,7 +316,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
       wsGateway.off("close", handleClose)
       wsGateway.off("chat-history", handleChatHistory)
       wsGateway.off("message", handleMessage)
-      wsGateway.off("message-persisted", handleMessagePersisted)
       wsGateway.off("reaction-update", handleReactionUpdate)
       wsGateway.off("partner-seen-messages", handlePartnerSeenMessages)
       wsGateway.off("message-edited", handleMessageEdited)

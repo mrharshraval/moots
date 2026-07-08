@@ -118,6 +118,22 @@ export class ConnectionRegistry {
     return undefined;
   }
 
+  getConnectionsByActorId(actorId: string, type?: "queue" | "chat"): ConnectionMetadata[] {
+    const ids = this.actorToIds.get(actorId);
+    if (!ids || ids.size === 0) return [];
+    
+    const result: ConnectionMetadata[] = [];
+    for (const id of ids) {
+      const conn = this.connections.get(id);
+      if (conn) {
+        if (!type || conn.connectionType === type) {
+          result.push(conn);
+        }
+      }
+    }
+    return result;
+  }
+
   updateMetadata(connectionId: string, updates: Partial<Omit<ConnectionMetadata, "connectionId" | "ws">>) {
     const conn = this.connections.get(connectionId);
     if (conn) {

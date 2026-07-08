@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu"
 import { useConversations } from "../hooks/use-conversations"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 
 export function ConversationList() {
   const router = useRouter()

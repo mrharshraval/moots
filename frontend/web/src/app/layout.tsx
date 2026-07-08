@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   manifest: "/brand/favicon/site.webmanifest",
 }
 
-import { SessionProvider } from "next-auth/react"
+import { AuthProvider } from "@/providers/auth-provider"
 import { QueryProvider } from "@/providers/query-provider"
 import { WebSocketProvider } from "@/providers/websocket-provider"
 
@@ -49,7 +49,7 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
     >
       <body>
-        <SessionProvider>
+        <AuthProvider>
           <QueryProvider>
             <WebSocketProvider>
               <ThemeProvider>
@@ -61,7 +61,7 @@ export default function RootLayout({
               </ThemeProvider>
             </WebSocketProvider>
           </QueryProvider>
-        </SessionProvider>
+        </AuthProvider>
       </body>
     </html>
   )

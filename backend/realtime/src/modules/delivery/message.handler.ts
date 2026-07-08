@@ -28,6 +28,12 @@ export async function handleParsedMessage(
             actorId: newActorId,
             email: newEmail,
           });
+
+          if (newActorId) {
+            redis.sadd("moots:presence:online", newActorId).catch((err: any) => {
+              structuredLog("REDIS_PRESENCE_ERROR", connectionId, { details: err.message }, "error", conn);
+            });
+          }
           
           conn.ws.send(JSON.stringify({ type: "authenticated", payload: { actorId: newActorId } }));
         } catch (err: any) {
@@ -77,7 +83,7 @@ export async function handleParsedMessage(
 
       case "join-chat": {
         if (!actorId) return;
-        const { nickname, username, sessionId } = payload;
+        const { nickname, username, sessionId, lastMessageId } = payload;
         registry.updateMetadata(connectionId, {
           sessionId,
           connectionType: "chat",
@@ -108,6 +114,14 @@ export async function handleParsedMessage(
           if (nickname) session.nicknames[actorId] = nickname;
           if (username) session.usernames[actorId] = username;
 
+          let messagesToSend = session.messages;
+          if (lastMessageId) {
+            const index = messagesToSend.findIndex((m: any) => m.id === lastMessageId);
+            if (index !== -1) {
+              messagesToSend = messagesToSend.slice(index + 1);
+            }
+          }
+
           const partnerId = session.users.find((id) => id !== actorId);
           const partnerNickname = partnerId ? (session.nicknames ? session.nicknames[partnerId] : "Stranger") : "Stranger";
           const partnerUsername = partnerId ? (session.usernames ? session.usernames[partnerId] : null) : null;
@@ -115,7 +129,7 @@ export async function handleParsedMessage(
             JSON.stringify({
               type: "chat-history",
               payload: {
-                messages: session.messages,
+                messages: messagesToSend,
                 partnerJoined: partnerId ? session.activeConnections.has(partnerId) : false,
                 partnerNickname: partnerNickname || "Stranger",
                 partnerUsername: partnerUsername || null,
@@ -182,24 +196,12 @@ export async function handleParsedMessage(
       case "typing-status": {
         if (!actorId) return;
         const { sessionId, isTyping } = payload;
-        const session = sessionService.getSession(sessionId);
-        if (!session) return;
-
-        const partnerId = session.users.find((id) => id !== actorId);
-        if (partnerId) {
-          const partnerConnId = session.activeConnections.get(partnerId);
-          if (partnerConnId) {
-            const partnerConn = registry.get(partnerConnId);
-            if (partnerConn && partnerConn.ws) {
-              partnerConn.ws.send(
-                JSON.stringify({
-                  type: "partner-typing",
-                  payload: { isTyping },
-                })
-              );
-            }
-          }
-        }
+        
+        sessionService.broadcast(sessionId, {
+          type: "partner-typing",
+          payload: { actorId, isTyping }
+        }, registry, [actorId]);
+        
         break;
       }
 
@@ -273,6 +275,36 @@ export async function handleParsedMessage(
         if (!actorId) return;
         const { sessionId } = payload;
         sessionService.broadcast(sessionId, { type, payload }, registry, [actorId]);
+        break;
+      }
+
+      case "webrtc:offer":
+      case "webrtc:answer":
+      case "webrtc:ice-candidate": {
+        if (!actorId) return;
+        const { sessionId, callId, targetActorId, offer, answer, candidate } = payload;
+        const session = sessionService.getSession(sessionId);
+        if (!session) return;
+        
+        const targetConnId = session.activeConnections.get(targetActorId);
+        if (targetConnId) {
+          const targetConn = registry.get(targetConnId);
+          if (targetConn && targetConn.ws) {
+            targetConn.ws.send(
+              JSON.stringify({
+                type,
+                payload: {
+                  sessionId,
+                  callId,
+                  senderId: actorId,
+                  ...(offer && { offer }),
+                  ...(answer && { answer }),
+                  ...(candidate && { candidate }),
+                }
+              })
+            );
+          }
+        }
         break;
       }
     }

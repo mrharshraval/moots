@@ -1,5 +1,6 @@
 import { ConversationsRepository } from "../repositories/conversations.repository.js";
-import { NotFoundError } from "../../../shared/errors/AppError.js";
+import { NotFoundError, ForbiddenError } from "../../../shared/errors/AppError.js";
+import { EventBus } from "../../../shared/events/event-bus.js";
 import { ConversationStatus } from "@prisma/client";
 import { prisma } from "../../../database/index.js";
 import { UpdateConversationSettingsInput, DeleteConversationInput } from "../dto/conversations.dto.js";
@@ -30,6 +31,22 @@ export class ConversationsService {
           persona: actor2Meta.nickname ? { displayName: actor2Meta.nickname, avatarSeed: actorId2 } : undefined 
         }
       ]
+    });
+  }
+
+  async createGroupConversation(creatorActorId: string, name: string, initialParticipantIds: string[] = []) {
+    const allParticipants = Array.from(new Set([creatorActorId, ...initialParticipantIds]));
+    
+    return this.repository.createConversation({
+      id: undefined, // Prisma will generate CUID
+      policyId: undefined, // Group conversations don't strictly need a matchmaking policy
+      type: "GROUP",
+      status: "ACTIVE",
+      name,
+      participants: allParticipants.map(actorId => ({
+        actorId,
+        role: actorId === creatorActorId ? "OWNER" : "MEMBER"
+      }))
     });
   }
 
@@ -118,6 +135,168 @@ export class ConversationsService {
       
       await this.repository.updateConversationStatus(conversationId, ConversationStatus.DELETED, tx);
       return { message: "Conversation ended" };
+    });
+  }
+
+  async createGroupInvite(conversationId: string, creatorActorId: string, maxUses?: number, expiresInMs?: number) {
+    const participant = await prisma.participant.findUnique({
+      where: { actorId_conversationId: { actorId: creatorActorId, conversationId } }
+    });
+    if (!participant || participant.role !== "OWNER") {
+      throw new NotFoundError("Conversation not found or you don't have permission to invite");
+    }
+
+    const { randomBytes } = await import("crypto");
+    const code = randomBytes(6).toString("hex");
+
+    return prisma.groupInvite.create({
+      data: {
+        conversationId,
+        createdById: creatorActorId,
+        code,
+        maxUses,
+        expiresAt: expiresInMs ? new Date(Date.now() + expiresInMs) : null
+      }
+    });
+  }
+
+  async joinGroupInvite(code: string, actorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const invite = await tx.groupInvite.findUnique({
+        where: { code },
+        include: { conversation: true }
+      });
+
+      if (!invite || invite.revokedAt || (invite.expiresAt && invite.expiresAt < new Date()) || (invite.maxUses && invite.useCount >= invite.maxUses)) {
+        throw new NotFoundError("Invalid or expired invite code");
+      }
+
+      if (invite.conversation.type !== "GROUP" || invite.conversation.status !== "ACTIVE") {
+        throw new NotFoundError("Conversation is no longer active");
+      }
+
+      const existingParticipant = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId: invite.conversationId } }
+      });
+
+      if (existingParticipant) {
+        if (existingParticipant.hasLeft) {
+          await tx.participant.update({
+            where: { id: existingParticipant.id },
+            data: { hasLeft: false, role: "MEMBER" }
+          });
+        }
+        return { message: "Joined", conversationId: invite.conversationId };
+      }
+
+      await tx.participant.create({
+        data: {
+          actorId,
+          conversationId: invite.conversationId,
+          role: "MEMBER"
+        }
+      });
+
+      await tx.groupInvite.update({
+        where: { id: invite.id },
+        data: { useCount: { increment: 1 } }
+      });
+
+      await EventBus.publish(tx, "participant.joined", invite.conversationId, "Conversation", {
+        conversationId: invite.conversationId,
+        actorId,
+        role: "MEMBER"
+      });
+
+      return { message: "Joined", conversationId: invite.conversationId };
+    });
+  }
+
+  async kickParticipant(conversationId: string, actorId: string, targetActorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const requester = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      if (!requester || (requester.role !== "OWNER" && requester.role !== "ADMIN")) {
+        throw new ForbiddenError("Not authorized to kick participants");
+      }
+
+      const target = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId: targetActorId, conversationId } }
+      });
+      if (!target || target.hasLeft) {
+        throw new NotFoundError("Participant not found");
+      }
+      if (target.role === "OWNER") {
+        throw new ForbiddenError("Cannot kick the owner");
+      }
+
+      await tx.participant.update({
+        where: { id: target.id },
+        data: { hasLeft: true, leftAt: new Date() }
+      });
+
+      await EventBus.publish(tx, "participant.left", conversationId, "Conversation", {
+        conversationId,
+        actorId: targetActorId,
+        kickedBy: actorId
+      });
+
+      return { message: "Participant kicked" };
+    });
+  }
+
+  async leaveConversation(conversationId: string, actorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const participant = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      if (!participant || participant.hasLeft) {
+        throw new NotFoundError("Participant not found");
+      }
+
+      await tx.participant.update({
+        where: { id: participant.id },
+        data: { hasLeft: true, leftAt: new Date() }
+      });
+
+      await EventBus.publish(tx, "participant.left", conversationId, "Conversation", {
+        conversationId,
+        actorId
+      });
+
+      return { message: "Left conversation" };
+    });
+  }
+
+  async updateParticipantRole(conversationId: string, actorId: string, targetActorId: string, newRole: "ADMIN" | "MEMBER") {
+    return prisma.$transaction(async (tx) => {
+      const requester = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      if (!requester || requester.role !== "OWNER") {
+        throw new ForbiddenError("Only the owner can change roles");
+      }
+
+      const target = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId: targetActorId, conversationId } }
+      });
+      if (!target || target.hasLeft) {
+        throw new NotFoundError("Participant not found");
+      }
+
+      await tx.participant.update({
+        where: { id: target.id },
+        data: { role: newRole }
+      });
+
+      await EventBus.publish(tx, "participant.role_updated", conversationId, "Conversation", {
+        conversationId,
+        actorId: targetActorId,
+        role: newRole
+      });
+
+      return { message: "Role updated" };
     });
   }
 }

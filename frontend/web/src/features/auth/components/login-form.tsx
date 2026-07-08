@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useSession } from "@/providers/auth-provider";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -14,6 +14,7 @@ import { User, Lock } from "lucide-react";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signIn } = useSession();
   
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -49,23 +50,18 @@ export function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      await signIn("credentials", {
         identifier,
         password,
         redirect: false,
       });
-
-      if (result?.error) {
-        toast.error("Invalid username/email or password");
-        return;
-      }
 
       toast.success("Welcome back!");
       router.push("/");
       router.refresh();
     } catch (err) {
       console.error(err);
-      toast.error("An unexpected error occurred");
+      toast.error("Invalid username/email or password");
     } finally {
       setLoading(false);
     }

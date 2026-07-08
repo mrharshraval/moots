@@ -17,7 +17,7 @@ import { useIsMobile } from "@/shared/hooks/use-mobile"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 import { getOrInitializeNickname } from "@/shared/utils/nickname"
 import { usePartnerStateStore } from "@/features/chat"
 

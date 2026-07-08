@@ -42,18 +42,7 @@ export class MessagesController {
   readInternal = asyncHandler(async (req: Request, res: Response) => {
     const { conversationId, actorId } = ReadInternalSchema.shape.body.parse(req.body);
     
-    const { prisma } = await import("../../../database/index.js");
-    await prisma.$transaction(async (tx) => {
-      await tx.participant.update({
-        where: { actorId_conversationId: { actorId, conversationId } },
-        data: { unreadCount: 0 }
-      });
-
-      await EventBus.publish(tx, "participant.read", conversationId, "Conversation", {
-        conversationId,
-        actorId,
-      });
-    });
+    await this.service.markRead(conversationId, actorId);
     
     return sendSuccess(res, { success: true });
   });

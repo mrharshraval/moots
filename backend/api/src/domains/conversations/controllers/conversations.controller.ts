@@ -59,4 +59,54 @@ export class ConversationsController {
     
     return sendSuccess(res, { success: true });
   });
+
+  createGroup = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { name, participantActorIds } = req.body; // should be validated by CreateGroupConversationSchema
+    
+    const conversation = await this.service.createGroupConversation(actorId, name, participantActorIds);
+    return sendSuccess(res, { conversation }, { status: 201 });
+  });
+
+  createInvite = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { id } = req.params;
+    const { maxUses, expiresInMs } = req.body;
+    
+    const invite = await this.service.createGroupInvite(id as string, actorId, maxUses, expiresInMs);
+    return sendSuccess(res, { invite }, { status: 201 });
+  });
+
+  joinInvite = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { code } = req.params;
+    
+    const result = await this.service.joinGroupInvite(code as string, actorId);
+    return sendSuccess(res, result);
+  });
+
+  kickParticipant = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { id, targetActorId } = req.params;
+    
+    const result = await this.service.kickParticipant(id as string, actorId, targetActorId as string);
+    return sendSuccess(res, result);
+  });
+
+  leaveConversation = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { id } = req.params;
+    
+    const result = await this.service.leaveConversation(id as string, actorId);
+    return sendSuccess(res, result);
+  });
+
+  updateParticipantRole = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { id, targetActorId } = req.params;
+    const { role } = req.body;
+    
+    const result = await this.service.updateParticipantRole(id as string, actorId, targetActorId as string, role);
+    return sendSuccess(res, result);
+  });
 }

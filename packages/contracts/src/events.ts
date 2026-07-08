@@ -78,7 +78,66 @@ export const IdentityRevealConfirmedEventSchema = z.object({
   actorId: z.string(),
 });
 
+export const ParticipantJoinedEventSchema = z.object({
+  conversationId: z.string(),
+  actorId: z.string(),
+  role: z.string(),
+});
+
+export const ParticipantLeftEventSchema = z.object({
+  conversationId: z.string(),
+  actorId: z.string(),
+  kickedBy: z.string().optional(),
+});
+
+export const ParticipantRoleUpdatedEventSchema = z.object({
+  conversationId: z.string(),
+  actorId: z.string(),
+  role: z.string(),
+});
+
+export const CallInitiatedEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.string(),
+  initiatorActorId: z.string(),
+  type: z.string(),
+  participantIds: z.array(z.string()).optional(),
+});
+
+export const CallAcceptedEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.string(),
+  actorId: z.string(),
+});
+
+export const CallDeclinedEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.string(),
+  actorId: z.string(),
+});
+
+export const CallMissedEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.string(),
+});
+
+export const CallEndedEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.string(),
+  actorId: z.string().optional(),
+});
+
+export const NotificationCreatedEventSchema = z.object({
+  id: z.string(),
+  actorId: z.string(),
+  type: z.string(),
+  entityId: z.string().nullable().optional(),
+  payload: z.any(),
+  createdAt: z.string(),
+});
+
 export const DomainEventSchema = z.discriminatedUnion("eventType", [
+  z.object({ eventType: z.literal("notification.created"), payload: NotificationCreatedEventSchema }),
   z.object({ eventType: z.literal("conversation.provisioned"), payload: ConversationProvisionedEventSchema }),
   z.object({ eventType: z.literal("message.persisted"), payload: MessagePersistedEventSchema }),
   z.object({ eventType: z.literal("message.deleted"), payload: MessageDeletedEventSchema }),
@@ -89,6 +148,14 @@ export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("connection.accepted"), payload: ConnectionAcceptedEventSchema }),
   z.object({ eventType: z.literal("connection.removed"), payload: ConnectionRemovedEventSchema }),
   z.object({ eventType: z.literal("identity.reveal_confirmed"), payload: IdentityRevealConfirmedEventSchema }),
+  z.object({ eventType: z.literal("participant.joined"), payload: ParticipantJoinedEventSchema }),
+  z.object({ eventType: z.literal("participant.left"), payload: ParticipantLeftEventSchema }),
+  z.object({ eventType: z.literal("participant.role_updated"), payload: ParticipantRoleUpdatedEventSchema }),
+  z.object({ eventType: z.literal("call.initiated"), payload: CallInitiatedEventSchema }),
+  z.object({ eventType: z.literal("call.accepted"), payload: CallAcceptedEventSchema }),
+  z.object({ eventType: z.literal("call.declined"), payload: CallDeclinedEventSchema }),
+  z.object({ eventType: z.literal("call.missed"), payload: CallMissedEventSchema }),
+  z.object({ eventType: z.literal("call.ended"), payload: CallEndedEventSchema }),
 ]);
 
 export type DomainEvent = z.infer<typeof DomainEventSchema>;
@@ -106,7 +173,10 @@ export type WSInboundEventType =
   | "connection:accepted"
   | "connection:removed"
   | "participant:identity-revealed"
-  | "participant:identity-hidden";
+  | "participant:identity-hidden"
+  | "webrtc:offer"
+  | "webrtc:answer"
+  | "webrtc:ice-candidate";
 
 export type WSOutboundEventType =
   | "match-found"
@@ -125,4 +195,12 @@ export type WSOutboundEventType =
   | "participant:identity-revealed"
   | "participant:identity-hidden"
   | "partner-disconnected"
-  | "error";
+  | "notification-received"
+  | "error"
+  | "call:incoming"
+  | "call:accepted"
+  | "call:declined"
+  | "call:ended"
+  | "webrtc:offer"
+  | "webrtc:answer"
+  | "webrtc:ice-candidate";

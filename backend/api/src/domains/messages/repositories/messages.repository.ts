@@ -9,6 +9,7 @@ export class MessagesRepository {
     contentType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
     clientMessageId?: string;
     replyToId?: string;
+    metadata?: any;
   }, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
     return db.message.create({
@@ -19,7 +20,7 @@ export class MessagesRepository {
         contentType: data.contentType || 'TEXT',
         clientMessageId: data.clientMessageId,
         replyToId: data.replyToId,
-        metadata: {},
+        metadata: data.metadata || {},
       },
       include: {
         sender: {
@@ -52,7 +53,8 @@ export class MessagesRepository {
               include: { user: { select: { id: true, name: true, image: true, username: true } } }
             }
           }
-        }
+        },
+        receipts: true,
       }
     });
   }
@@ -65,13 +67,14 @@ export class MessagesRepository {
     });
   }
 
-  async edit(messageId: string, newContent: string, tx?: Prisma.TransactionClient) {
+  async edit(messageId: string, newContent: string, newMetadata?: any, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
     return db.message.update({
       where: { id: messageId },
       data: {
         content: newContent,
         isEdited: true,
+        ...(newMetadata ? { metadata: newMetadata } : {})
       }
     });
   }
@@ -122,5 +125,54 @@ export class MessagesRepository {
       where: { messageId },
       include: { participant: { select: { actorId: true } } }
     });
+  }
+
+  async markUnreadMessagesAsRead(conversationId: string, participantId: string, actorId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    
+    // Find all messages in the conversation that are NOT sent by this participant
+    // and for which there is no READ receipt from this participant.
+    const messages = await db.message.findMany({
+      where: {
+        conversationId,
+        senderParticipantId: { not: participantId },
+        NOT: {
+          receipts: {
+            some: {
+              participantId,
+              status: "READ"
+            }
+          }
+        }
+      },
+      select: { id: true }
+    });
+
+    if (messages.length === 0) return 0;
+
+    // We can't do createMany on receipts easily if there are unique constraints and we want to update.
+    // So we use an upsert loop (or executeRaw for bulk upsert, but loop is safer for now).
+    let count = 0;
+    for (const msg of messages) {
+      await db.messageReceipt.upsert({
+        where: {
+          messageId_participantId: {
+            messageId: msg.id,
+            participantId
+          }
+        },
+        create: {
+          messageId: msg.id,
+          participantId,
+          actorId,
+          status: "READ"
+        },
+        update: {
+          status: "READ"
+        }
+      });
+      count++;
+    }
+    return count;
   }
 }

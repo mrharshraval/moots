@@ -1,5 +1,6 @@
 import * as React from "react"
-import { useSession } from "next-auth/react"
+import { env } from "@/env";
+import { useSession } from "@/providers/auth-provider"
 import { toast } from "sonner"
 import { apiRequest } from "@/infrastructure/http/api-client"
 
@@ -40,7 +41,7 @@ export function useProfile(onSuccess?: () => void) {
     setLoading(true)
 
     try {
-      const res = await apiRequest("/api/user/settings", {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/user/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, username, bio, image }),

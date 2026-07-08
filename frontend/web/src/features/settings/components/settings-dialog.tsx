@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/providers/auth-provider";
 import { useTheme } from "next-themes";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";

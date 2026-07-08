@@ -19,6 +19,7 @@ import { connectionsRouter } from "../domains/connections/index.js";
 import { internalConnectionsRouter } from "../domains/connections/routes/connections.internal.js";
 import { messagesRouter } from "../domains/messages/routes/messages.routes.js";
 import { internalMessagesRouter } from "../domains/messages/routes/messages.internal.js";
+import { callsRouter } from "../domains/calls/routes/calls.routes.js";
 import helmet from "helmet";
 import { globalErrorHandler } from "../shared/middlewares/error.middleware.js";
 import swaggerUi from "swagger-ui-express";
@@ -26,7 +27,15 @@ import { generateOpenApiSpec } from "../docs/openapi.js";
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  // In development the frontend (localhost:3000) fetches from the API (localhost:3002).
+  // Helmet's default `Cross-Origin-Resource-Policy: same-origin` header causes browsers
+  // to block those cross-origin responses before the app can read them (incl. cookies).
+  // We relax this to `same-site` in non-production so that cross-port localhost traffic works.
+  crossOriginResourcePolicy: {
+    policy: process.env.NODE_ENV === "production" ? "same-origin" : "same-site",
+  },
+}));
 app.use(cors({
   origin:      env.ALLOWED_ORIGINS,
   credentials: true,
@@ -79,12 +88,22 @@ app.use(
   })
 );
 
+import { messagesRootRouter } from "../domains/messages/routes/messages.root.js";
+import { searchRouter } from "../domains/search/index.js";
+import { moderationRouter } from "../domains/moderation/index.js";
+import { notificationRoutes } from "../domains/notifications/index.js";
+
 // Domain Routes
 app.use("/api/auth", authRateLimiter, authRouter);
 app.use("/api/user", readRateLimiter, usersRouter);
 app.use("/api/conversations", readRateLimiter, conversationsRouter);
 app.use("/api/conversations/:id/messages", readRateLimiter, messagesRouter);
+app.use("/api/messages", readRateLimiter, messagesRootRouter);
 app.use("/api/connections", readRateLimiter, connectionsRouter);
+app.use("/api/calls", readRateLimiter, callsRouter);
+app.use("/api/v1/search", searchRouter);
+app.use("/api/moderation", authRateLimiter, moderationRouter);
+app.use("/api/notifications", readRateLimiter, notificationRoutes);
 
 // Internal Routes (Bypass Rate Limiting)
 app.use("/internal/v1/messages", internalMessagesRouter);

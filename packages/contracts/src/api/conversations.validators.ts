@@ -33,3 +33,49 @@ export const RevealIdentityInternalSchema = z.object({
     actorId: z.string(),
   })
 });
+
+export const CreateGroupConversationSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Group name is required"),
+    participantActorIds: z.array(z.string()).optional(),
+  })
+});
+
+export const CreateGroupInviteSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+  }),
+  body: z.object({
+    maxUses: z.number().int().min(1).optional(),
+    expiresInMs: z.number().int().min(1000).optional(),
+  })
+});
+
+export const JoinGroupInviteSchema = z.object({
+  params: z.object({
+    code: z.string().min(1),
+  })
+});
+
+export const KickParticipantSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+    targetActorId: z.string().min(1),
+  })
+});
+
+export const LeaveConversationSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+  })
+});
+
+export const UpdateParticipantRoleSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+    targetActorId: z.string().min(1),
+  }),
+  body: z.object({
+    role: z.enum(["MEMBER", "ADMIN"]),
+  })
+});

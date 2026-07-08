@@ -17,6 +17,10 @@ export * from "./api/connections.validators.js";
 export * from "./api/conversations.validators.js";
 export * from "./api/messages.validators.js";
 export * from "./api/users.validators.js";
+export * from "./api/calls.validators.js";
+export * from "./api/search.validators.js";
+export * from "./api/moderation.validators.js";
+export * from "./api/notification.validators.js";
 
 // Realtime Payloads
 export * from "./realtime/ws.payloads.js";

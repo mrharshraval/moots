@@ -58,6 +58,30 @@ export function handleDomainEvent(event: DomainEvent) {
       break;
     }
 
+    case "notification.created": {
+      const payload = event.payload;
+      const { actorId, type: notifType, entityId, payload: notifPayload, createdAt } = payload;
+      
+      const connections = registry.getConnectionsByActorId(actorId);
+      for (const conn of connections) {
+        if (conn.ws) {
+          conn.ws.send(
+            JSON.stringify({
+              type: "notification-received",
+              payload: {
+                actorId,
+                type: notifType,
+                entityId,
+                payload: notifPayload,
+                createdAt,
+              }
+            })
+          );
+        }
+      }
+      break;
+    }
+
     case "message.persisted": {
       const payload = event.payload;
       const { id, clientMessageId, conversationId, senderActorId, sender, content, createdAt, replyToId } = payload;
@@ -158,17 +182,19 @@ export function handleDomainEvent(event: DomainEvent) {
     case "connection.requested": {
       const payload = event.payload;
       const { connectionId, senderActorId, receiverActorId } = payload;
-      const conn = registry.getConnectionByActorId(receiverActorId);
-      if (conn && conn.ws) {
-        conn.ws.send(
-          JSON.stringify({
-            type: "connection:request",
-            payload: {
-              connectionId,
-              senderId: senderActorId,
-            },
-          })
-        );
+      const connections = registry.getConnectionsByActorId(receiverActorId);
+      for (const conn of connections) {
+        if (conn.ws) {
+          conn.ws.send(
+            JSON.stringify({
+              type: "connection:request",
+              payload: {
+                connectionId,
+                senderId: senderActorId,
+              },
+            })
+          );
+        }
       }
       break;
     }
@@ -176,18 +202,20 @@ export function handleDomainEvent(event: DomainEvent) {
     case "connection.accepted": {
       const payload = event.payload;
       const { connectionId, actorId1, actorId2 } = payload;
-      // Notify both users if they are online
+      // Notify both users if they are online (all devices)
       [actorId1, actorId2].forEach((actorId) => {
-        const conn = registry.getConnectionByActorId(actorId);
-        if (conn && conn.ws) {
-          conn.ws.send(
-            JSON.stringify({
-              type: "connection:accepted",
-              payload: {
-                connectionId,
-              },
-            })
-          );
+        const connections = registry.getConnectionsByActorId(actorId);
+        for (const conn of connections) {
+          if (conn.ws) {
+            conn.ws.send(
+              JSON.stringify({
+                type: "connection:accepted",
+                payload: {
+                  connectionId,
+                },
+              })
+            );
+          }
         }
       });
       break;
@@ -197,16 +225,18 @@ export function handleDomainEvent(event: DomainEvent) {
       const payload = event.payload;
       const { connectionId, actorId1, actorId2 } = payload;
       [actorId1, actorId2].forEach((actorId) => {
-        const conn = registry.getConnectionByActorId(actorId);
-        if (conn && conn.ws) {
-          conn.ws.send(
-            JSON.stringify({
-              type: "connection:removed",
-              payload: {
-                connectionId,
-              },
-            })
-          );
+        const connections = registry.getConnectionsByActorId(actorId);
+        for (const conn of connections) {
+          if (conn.ws) {
+            conn.ws.send(
+              JSON.stringify({
+                type: "connection:removed",
+                payload: {
+                  connectionId,
+                },
+              })
+            );
+          }
         }
       });
       break;
@@ -233,6 +263,88 @@ export function handleDomainEvent(event: DomainEvent) {
           }
         }
       }
+      break;
+    }
+
+    case "participant.joined": {
+      const { conversationId, actorId, role } = event.payload;
+      const session = sessionService.getSession(conversationId);
+      if (session) {
+        if (!session.users.includes(actorId)) {
+          session.users.push(actorId);
+        }
+      }
+      sessionService.broadcast(conversationId, {
+        type: "group:participant-joined",
+        payload: { conversationId, actorId, role }
+      }, registry);
+      break;
+    }
+
+    case "participant.left": {
+      const { conversationId, actorId, kickedBy } = event.payload;
+      const session = sessionService.getSession(conversationId);
+      if (session) {
+        session.users = session.users.filter((id) => id !== actorId);
+      }
+      sessionService.broadcast(conversationId, {
+        type: "group:participant-left",
+        payload: { conversationId, actorId, kickedBy }
+      }, registry);
+      break;
+    }
+
+    case "participant.role_updated": {
+      const { conversationId, actorId, role } = event.payload;
+      sessionService.broadcast(conversationId, {
+        type: "group:role-updated",
+        payload: { conversationId, actorId, role }
+      }, registry);
+      break;
+    }
+
+    case "call.initiated": {
+      const { callId, conversationId, initiatorActorId, type: callType, participantIds } = event.payload;
+      if (Array.isArray(participantIds)) {
+        participantIds.forEach(actorId => {
+          const connections = registry.getConnectionsByActorId(actorId);
+          for (const conn of connections) {
+            if (conn.ws) {
+              conn.ws.send(JSON.stringify({
+                type: "call:incoming",
+                payload: { callId, conversationId, initiatorActorId, type: callType }
+              }));
+            }
+          }
+        });
+      }
+      break;
+    }
+
+    case "call.accepted": 
+    case "call.declined": 
+    case "call.ended": 
+    case "call.missed": {
+      const { callId, conversationId } = event.payload;
+      // Because we don't have participantIds in all these events (though we could add them), 
+      // the simplest way without changing all payloads is to broadcast to the conversation's active connections.
+      // However, to correctly dismiss ringing on ALL devices, we need the participant IDs. 
+      // For now, we will broadcast via sessionService which reaches active viewers. 
+      // Ideally, the API should include participantIds in all call events so we can reach all devices.
+      // But actually, we can fetch the Session and get `session.users` if it's cached, 
+      // or we can just stick to `sessionService.broadcast`. 
+      // Wait, let's just broadcast via sessionService, but also we can add participantIds if we wanted to.
+      const actionMap = {
+        "call.accepted": "call:accepted",
+        "call.declined": "call:declined",
+        "call.missed": "call:missed",
+        "call.ended": "call:ended"
+      } as const;
+      
+      sessionService.broadcast(conversationId, {
+        type: actionMap[event.eventType as keyof typeof actionMap],
+        payload: event.payload
+      }, registry);
       break;
     }
   }

@@ -7,6 +7,7 @@ import { ConflictError, InternalServerError, NotFoundError, UnauthorizedError } 
 import { jwtService } from "../../../lib/auth/jwt.service.js";
 import { prisma } from "../../../database/index.js";
 import { EmailService } from "../../../lib/email.service.js";
+import { logger } from "../../../shared/logger.js";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -33,6 +34,10 @@ export class AuthService {
       },
     });
 
+    const unreadNotificationCount = await prisma.notification.count({
+      where: { actorId: actor.id, isRead: false },
+    });
+
     return {
       accessToken,
       actorSessionToken: guestSession.guestToken, // forwarded to controller → moots_session cookie
@@ -40,6 +45,7 @@ export class AuthService {
         id: guestSession.id,
         createdAt: guestSession.createdAt,
       },
+      unreadNotificationCount,
     };
   }
 
@@ -211,6 +217,10 @@ export class AuthService {
       },
     });
 
+    const unreadNotificationCount = await prisma.notification.count({
+      where: { actorId: actor.id, isRead: false },
+    });
+
     return {
       accessToken,
       actorSessionToken: rawSessionToken, // controller sets this as moots_session cookie
@@ -223,10 +233,13 @@ export class AuthService {
         bio: user.bio,
         createdAt: user.createdAt,
       },
+      unreadNotificationCount,
     };
   }
 
   async refreshSessionToken(sessionToken: string) {
+    logger.info({ tokenPrefix: sessionToken.slice(0, 8) }, "[auth:refresh] token received");
+
     // Path A: Guest session (raw token stored in guestSession.guestToken)
     const guestSession = await prisma.guestSession.findUnique({
       where: { guestToken: sessionToken },
@@ -235,19 +248,29 @@ export class AuthService {
 
     if (guestSession) {
       if (new Date() > guestSession.expiresAt) {
+        logger.warn({ guestSessionId: guestSession.id }, "[auth:refresh] guest session expired");
         await prisma.guestSession.delete({ where: { id: guestSession.id } });
         throw new UnauthorizedError("Guest session expired");
       }
 
       const actor = guestSession.actors[0];
-      if (!actor) throw new UnauthorizedError("Guest session has no actor");
+      if (!actor) {
+        logger.error({ guestSessionId: guestSession.id }, "[auth:refresh] guest session has no actor");
+        throw new UnauthorizedError("Guest session has no actor");
+      }
 
+      logger.info({ actorId: actor.id, guestSessionId: guestSession.id }, "[auth:refresh] guest session valid → issuing access token");
       const accessToken = jwtService.sign({ actorId: actor.id });
+      const unreadNotificationCount = await prisma.notification.count({
+        where: { actorId: actor.id, isRead: false },
+      });
+
       // Guest token is not rotated — it's long-lived by design (30 days)
-      return { accessToken, actorSessionToken: sessionToken };
+      return { accessToken, actorSessionToken: sessionToken, unreadNotificationCount };
     }
 
     // Path B: User session (token stored hashed in Session.sessionToken)
+    logger.info({ tokenPrefix: sessionToken.slice(0, 8) }, "[auth:refresh] not a guest token, trying user session");
     const hashedToken = crypto
       .createHash("sha256")
       .update(sessionToken)
@@ -260,11 +283,15 @@ export class AuthService {
 
     if (!userSession || new Date() > userSession.expires) {
       if (userSession) {
+        logger.warn({ sessionId: userSession.id, userId: userSession.userId }, "[auth:refresh] user session expired, deleting");
         await prisma.session.delete({ where: { id: userSession.id } });
+      } else {
+        logger.warn({ tokenPrefix: sessionToken.slice(0, 8) }, "[auth:refresh] user session not found in database → returning 401");
       }
       throw new UnauthorizedError("Invalid or expired session token");
     }
 
+    logger.info({ sessionId: userSession.id, userId: userSession.userId }, "[auth:refresh] user session valid → issuing access token");
     const actor = await this.repository.getOrCreateActorForUser(userSession.userId);
     const accessToken = jwtService.sign({ actorId: actor.id });
 
@@ -281,6 +308,10 @@ export class AuthService {
       data: { sessionToken: newHashedToken, expires: newExpires },
     });
 
-    return { accessToken, actorSessionToken: newRawToken };
+    const unreadNotificationCount = await prisma.notification.count({
+      where: { actorId: actor.id, isRead: false },
+    });
+
+    return { accessToken, actorSessionToken: newRawToken, unreadNotificationCount };
   }
 }

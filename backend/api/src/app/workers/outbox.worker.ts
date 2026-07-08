@@ -1,9 +1,9 @@
 import { logger } from "../../shared/logger.js";
 import { OutboxService } from "../../shared/events/outbox.service.js";
 
-const POLL_INTERVAL_MS = 2_000;   // idle poll: 2s
-const MIN_BACKOFF_MS   = 2_000;   // first retry after error
-const MAX_BACKOFF_MS   = 60_000;  // cap at 60s
+const POLL_INTERVAL_MS = 100;    // idle poll: 100ms
+const MIN_BACKOFF_MS   = 1_000;  // first retry after error
+const MAX_BACKOFF_MS   = 30_000; // cap at 30s
 
 let running    = false;
 let timeoutId: NodeJS.Timeout | null = null;
@@ -15,8 +15,9 @@ export async function processOutbox() {
   if (running) return;
   running = true;
 
+  let processedCount = 0;
   try {
-    await outboxService.processOutbox();
+    processedCount = await outboxService.processOutbox();
     // Success — reset backoff
     backoffMs = 0;
   } catch (err: any) {
@@ -25,7 +26,10 @@ export async function processOutbox() {
     backoffMs = backoffMs === 0 ? MIN_BACKOFF_MS : Math.min(backoffMs * 2, MAX_BACKOFF_MS);
   } finally {
     running = false;
-    const delay = backoffMs > 0 ? backoffMs : POLL_INTERVAL_MS;
+    // If we processed events, check again very quickly (10ms) to ensure low latency
+    const delay = backoffMs > 0 
+      ? backoffMs 
+      : (processedCount > 0 ? 10 : POLL_INTERVAL_MS);
     timeoutId = setTimeout(processOutbox, delay);
   }
 }

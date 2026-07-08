@@ -3,6 +3,7 @@ import { prisma } from "../../../database/index.js";
 import { NotFoundError, ForbiddenError } from "../../../shared/errors/AppError.js";
 import { EventBus } from "../../../shared/events/event-bus.js";
 import { MessageSerializer } from "./message-serializer.service.js";
+import { NotificationType } from "@prisma/client";
 
 export class MessagesService {
   private repository: MessagesRepository;
@@ -20,6 +21,7 @@ export class MessagesService {
     contentType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
     clientMessageId?: string;
     replyToId?: string;
+    metadata?: any;
   }) {
     return prisma.$transaction(async (tx) => {
       const participant = await tx.participant.findUnique({
@@ -36,12 +38,82 @@ export class MessagesService {
         throw new NotFoundError(`Participant not found for actor ${data.senderParticipantId} in conversation ${data.conversationId}`);
       }
 
+      // Mentions parsing
+      const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+      const matches = [...data.content.matchAll(mentionRegex)];
+      let mentions: string[] = [];
+      if (matches.length > 0) {
+        const usernames = matches.map(m => m[1]);
+        const mentionedUsers = await tx.user.findMany({
+          where: { username: { in: usernames } },
+          select: { actors: { select: { id: true }, take: 1 } }
+        });
+        mentions = mentionedUsers.flatMap(u => u.actors.map(a => a.id));
+      }
+
       const createData = {
         ...data,
+        metadata: {
+          ...data.metadata,
+          mentions: mentions.length > 0 ? mentions : data.metadata?.mentions
+        },
         senderParticipantId: participant.id // Use actual Participant ID
       };
 
       const message = await this.repository.create(createData, tx);
+      
+      // Determine other participants to notify
+      const otherParticipants = await tx.participant.findMany({
+        where: { conversationId: data.conversationId, actorId: { not: data.senderParticipantId } },
+        select: { actorId: true }
+      });
+
+      for (const p of otherParticipants) {
+        let notifType: NotificationType = NotificationType.NEW_MESSAGE;
+        if (data.replyToId) {
+          // Check if this reply is specifically to this participant's message
+          const repliedMsg = await tx.message.findUnique({ where: { id: data.replyToId }, select: { sender: { select: { actorId: true } } } });
+          if (repliedMsg && repliedMsg.sender?.actorId === p.actorId) {
+            notifType = NotificationType.MESSAGE_REPLY;
+          }
+        }
+        if (mentions.includes(p.actorId)) {
+          notifType = NotificationType.MENTION;
+        }
+
+        const idempotencyKey = `msg_${message.id}_${notifType}`;
+
+        const notif = await tx.notification.upsert({
+          where: {
+            actorId_idempotencyKey: {
+              actorId: p.actorId,
+              idempotencyKey
+            }
+          },
+          update: {},
+          create: {
+            actorId: p.actorId,
+            type: notifType,
+            entityId: message.id,
+            idempotencyKey,
+            payload: {
+              conversationId: data.conversationId,
+              senderId: data.senderParticipantId,
+              messageId: message.id,
+              preview: data.content.substring(0, 50),
+            }
+          }
+        });
+
+        await EventBus.publish(tx, "notification.created", notif.id, "Notification", {
+          id: notif.id,
+          actorId: notif.actorId,
+          type: notif.type,
+          entityId: notif.entityId,
+          payload: notif.payload,
+          createdAt: notif.createdAt.toISOString(),
+        });
+      }
 
       const previewText = data.contentType === 'TEXT' || !data.contentType ? data.content : `[${data.contentType}]`;
       
@@ -148,7 +220,19 @@ export class MessagesService {
         throw new NotFoundError("Message not found or you don't have permission to edit it");
       }
 
-      const message = await this.repository.edit(messageId, newContent, tx);
+      const existingMetadata: any = existingMessage.metadata || {};
+      const editHistory = existingMetadata.editHistory || [];
+      editHistory.push({
+        content: existingMessage.content,
+        editedAt: new Date().toISOString()
+      });
+
+      const newMetadata = {
+        ...existingMetadata,
+        editHistory
+      };
+
+      const message = await this.repository.edit(messageId, newContent, newMetadata, tx);
 
       await EventBus.publish(tx, "message.edited", messageId, "Message", {
         messageId,
@@ -197,6 +281,29 @@ export class MessagesService {
       });
 
       return result;
+    });
+  }
+
+  async markRead(conversationId: string, actorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const participant = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      
+      if (!participant) return;
+
+      await tx.participant.update({
+        where: { id: participant.id },
+        data: { unreadCount: 0 }
+      });
+
+      const count = await this.repository.markUnreadMessagesAsRead(conversationId, participant.id, actorId, tx);
+
+      await EventBus.publish(tx, "participant.read", conversationId, "Conversation", {
+        conversationId,
+        actorId,
+        receiptsCreated: count
+      });
     });
   }
 }

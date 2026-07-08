@@ -98,7 +98,14 @@ export function initializeWebSocketGateway(wss: WebSocketServer) {
         );
       }
 
+      const actorId = conn.actorId;
       registry.deregister(conn.connectionId);
+      
+      if (actorId && !registry.getConnectionByActorId(actorId)) {
+        redis.srem("moots:presence:online", actorId).catch((err: any) => {
+          structuredLog("REDIS_PRESENCE_ERROR", conn.connectionId, { details: err.message }, "error");
+        });
+      }
     });
 
     // Error handling

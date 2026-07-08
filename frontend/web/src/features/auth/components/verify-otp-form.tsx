@@ -10,6 +10,7 @@ import { Label } from "@/shared/ui/label";
 import { toast } from "sonner";
 import { Mail, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/infrastructure/http/api-client";
+import { env } from "@/env";
 
 export function VerifyOtpForm() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export function VerifyOtpForm() {
     setLoading(true);
 
     try {
-      const res = await apiRequest("/api/auth/verify-otp", {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),

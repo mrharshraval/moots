@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/providers/auth-provider"
 import { Button } from "@/shared/ui/button"
 
 export function LandingHeader() {
