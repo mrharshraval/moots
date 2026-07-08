@@ -42,16 +42,12 @@ export function ActionBar({
         )}
       </div>
       <div className="flex gap-2 items-center">
-        {connectionStatus === "accepted" && (
-          <>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVoiceCall}>
-              <Phone className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVideoCall}>
-              <Video className="w-4 h-4" />
-            </Button>
-          </>
-        )}
+        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVoiceCall}>
+          <Phone className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onVideoCall}>
+          <Video className="w-4 h-4" />
+        </Button>
         {!hasRevealedIdentity && isUserLoggedIn && (
           <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={handleRevealIdentity}>
             Reveal Identity
