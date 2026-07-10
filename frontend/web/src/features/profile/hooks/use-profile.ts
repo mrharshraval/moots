@@ -67,7 +67,7 @@ export function useProfile(onSuccess?: () => void) {
         },
       })
 
-      toast.success("Profile updated successfully!")
+      toast.success("Profile updated successfully")
       if (onSuccess) {
         onSuccess()
       }

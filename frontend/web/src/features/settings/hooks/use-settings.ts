@@ -13,13 +13,20 @@ export function useSettings() {
   const [loading, setLoading] = React.useState(false)
 
   const [language, setLanguage] = React.useState("en")
-  const [soundEnabled, setSoundEnabled] = React.useState(true)
-  const [pushEnabled, setPushEnabled] = React.useState(false)
+
   const [accent, setAccent] = React.useState("default")
+  const [interests, setInterests] = React.useState<string[]>([])
+  const [customTopics, setCustomTopics] = React.useState<string[]>([])
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       setAccent(localStorage.getItem("moots-accent") || "default")
+      
+      const savedInterests = localStorage.getItem("moots-interests")
+      if (savedInterests) setInterests(JSON.parse(savedInterests))
+        
+      const savedCustom = localStorage.getItem("moots-custom-topics")
+      if (savedCustom) setCustomTopics(JSON.parse(savedCustom))
     }
   }, [])
 
@@ -27,6 +34,26 @@ export function useSettings() {
     setAccent(val)
     localStorage.setItem("moots-accent", val)
     window.dispatchEvent(new Event("moots-accent-changed"))
+  }
+
+  const handleToggleTopic = (topicId: string) => {
+    const newInterests = interests.includes(topicId)
+      ? interests.filter((t) => t !== topicId)
+      : [...interests, topicId]
+    
+    setInterests(newInterests)
+    localStorage.setItem("moots-interests", JSON.stringify(newInterests))
+  }
+
+  const handleAddCustom = (topicId: string) => {
+    if (!interests.includes(topicId)) {
+      const newInterests = [...interests, topicId]
+      const newCustom = [...customTopics, topicId]
+      setInterests(newInterests)
+      setCustomTopics(newCustom)
+      localStorage.setItem("moots-interests", JSON.stringify(newInterests))
+      localStorage.setItem("moots-custom-topics", JSON.stringify(newCustom))
+    }
   }
 
   React.useEffect(() => {
@@ -51,7 +78,7 @@ export function useSettings() {
       setLoading(false)
       setPassword("")
       setConfirmPassword("")
-      toast.success("Password updated successfully!")
+      toast.success("Password updated successfully")
     }, 1000)
   }
 
@@ -77,12 +104,13 @@ export function useSettings() {
     loading,
     language,
     setLanguage,
-    soundEnabled,
-    setSoundEnabled,
-    pushEnabled,
-    setPushEnabled,
+
     accent,
     handleAccentChange,
+    interests,
+    customTopics,
+    handleToggleTopic,
+    handleAddCustom,
     handleUpdatePassword,
     handleDeleteAccount,
     handleDataExport

@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip"
 import { useSession } from "@/providers/auth-provider"
 import { getOrInitializeNickname } from "@/shared/utils/nickname"
 import { usePartnerStateStore } from "@/features/chat"
+import { useMessagesStore } from "@/features/chat/presentation/store/messages-store"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
@@ -31,7 +32,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const peerNickname = usePartnerStateStore((state) => state.peerNickname)
   const peerUsername = usePartnerStateStore((state) => state.peerUsername)
   const isWsReady = usePartnerStateStore((state) => state.isWsReady)
-  const partnerName = isWsReady ? (peerUsername || peerNickname) : null
+  const conversations = useMessagesStore((state) => state.conversations)
+
+  const partnerName = React.useMemo(() => {
+    // Attempt to read synchronously from cached conversations to prevent layout shift on navigation
+    if (pathname.startsWith("/chat/") && pathname !== "/chat/waiting" && pathname !== "/chat/disconnected") {
+      const sessionId = pathname.split("/").pop()
+      const cachedChat = conversations.find((c) => c.id === sessionId)
+      if (cachedChat) {
+        return cachedChat.name || "Stranger"
+      }
+    }
+    // Fallback to websocket state for brand new matches not yet in the sidebar
+    return isWsReady ? (peerUsername || peerNickname) : null
+  }, [pathname, conversations, isWsReady, peerUsername, peerNickname])
 
   React.useEffect(() => {
     const user = session?.user
@@ -47,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === "/chat") {
       pageName = "Chats"
     } else if (pathname === "/chat/waiting") {
-      pageName = "Matching..."
+      pageName = "Matching"
     } else if (pathname === "/chat/disconnected") {
       pageName = "Disconnected"
     } else if (pathname.startsWith("/chat/")) {
@@ -56,8 +70,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       pageName = "Friends"
     } else if (pathname === "/groups") {
       pageName = "Groups"
-    } else if (pathname === "/notifications") {
-      pageName = "Notifications"
     }
 
     if (pageName) {
@@ -70,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const initials = displayName.substring(0, 2).toUpperCase()
 
   // On mobile, if we are at the root of a module with a secondary nav, hide the main inset.
-  const isSecondaryNavActiveRoot = pathname === "/chat" || pathname === "/notifications"
+  const isSecondaryNavActiveRoot = pathname === "/chat"
 
   return (
     <SidebarProvider
@@ -107,16 +119,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {isMobile && (
               <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-accent [&_svg]:size-5" />
             )}
-            <div className="flex items-center gap-2.5">
-              <Avatar className="size-8">
-                <AvatarFallback className="text-sm font-semibold bg-foreground/10">
-                  {partnerName ? partnerName.substring(0, 2).toUpperCase() : initials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-semibold leading-none">
-                {partnerName ? partnerName : displayName}
-              </span>
-            </div>
+            {!(pathname === "/chat" || pathname === "/chat/waiting") && (
+              <div className="flex items-center gap-2.5">
+                <Avatar className="size-8">
+                  <AvatarFallback className="text-sm font-semibold bg-foreground/10">
+                    {partnerName ? partnerName.substring(0, 2).toUpperCase() : initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-semibold leading-none">
+                  {partnerName ? partnerName : displayName}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* RIGHT: auth buttons when not logged in */}

@@ -42,9 +42,9 @@ export function ChatInput({
       {/* ── EDITING PREVIEW ── */}
       {editingMsg && (
         <div className="px-4 pb-3 max-w-3xl mx-auto w-full">
-          <div className="flex items-center justify-between bg-primary/5 rounded-xl px-4 py-2 border border-primary/20 text-xs">
+          <div className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-2 border border-border text-xs">
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[10px] text-primary mb-0.5">
+              <span className="font-semibold text-[10px] text-foreground mb-0.5">
                 Editing message
               </span>
               <span className="text-foreground truncate max-w-lg">
@@ -94,7 +94,7 @@ export function ChatInput({
             value={inputText}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Type a message"
             rows={1}
             className="block w-full !bg-transparent !border-none focus-visible:!ring-0 focus-visible:ring-offset-0 resize-none min-h-[28px] max-h-[200px] text-[14px] md:text-[14px] text-foreground placeholder:text-muted-foreground/50 py-1 leading-relaxed !shadow-none p-0 overflow-y-auto custom-scrollbar disabled:opacity-40 disabled:cursor-not-allowed"
           />
@@ -115,25 +115,29 @@ export function ChatInput({
               </Tooltip>
             </div>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-2">
-              {!inputText.trim() ? (
-                <button
-                  onClick={() => router.push("/chat")}
-                  className="h-8 px-3 rounded-full flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer border-none bg-transparent outline-none whitespace-nowrap hover:bg-foreground/5"
-                >
-                  Skip
-                  <ChevronRight className="size-4 mt-px" strokeWidth={2} />
-                </button>
-              ) : (
-                <button
-                  onClick={send}
-                  disabled={!isWsReady}
-                  className={cn("size-8 rounded-full flex items-center justify-center transition-opacity cursor-pointer border-none outline-none", isWsReady ? "bg-foreground text-background hover:opacity-90" : "bg-muted-foreground/30 text-muted-foreground cursor-not-allowed")}
-                >
-                  <ChevronRight className="size-5 -rotate-90" strokeWidth={2.5} />
-                </button>
-              )}
+            <div className="flex items-center gap-2 relative min-w-8 h-8 select-none">
+              <button
+                onClick={() => router.push("/chat")}
+                className={cn(
+                  "h-8 px-3 rounded-full flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer border-none bg-transparent outline-none whitespace-nowrap hover:bg-foreground/5 absolute right-0 top-0 origin-right",
+                  inputText.trim() ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
+                )}
+              >
+                Skip
+                <ChevronRight className="size-4 mt-px" strokeWidth={2} />
+              </button>
+
+              <button
+                onClick={send}
+                disabled={!isWsReady}
+                className={cn(
+                  "size-8 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer border-none outline-none absolute right-0 top-0 origin-right",
+                  isWsReady ? "bg-foreground text-background hover:opacity-90" : "bg-muted-foreground/30 text-muted-foreground cursor-not-allowed",
+                  !inputText.trim() ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
+                )}
+              >
+                <ChevronRight className="size-5 -rotate-90" strokeWidth={2.5} />
+              </button>
             </div>
           </div>
         </div>

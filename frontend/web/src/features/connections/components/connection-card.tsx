@@ -21,7 +21,7 @@ export function ConnectionCard({ connection, onAccept, onDecline, onRemove, onUn
         {/* User Avatar + Status Badge */}
         <div className="relative">
           <Avatar className="h-11 w-11 rounded-full">
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
+            <AvatarFallback className="bg-muted text-muted-foreground font-bold">
               {connection.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>

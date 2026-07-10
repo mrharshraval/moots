@@ -43,7 +43,7 @@ export function ConversationList() {
         <div className="relative flex-1 px-2">
           <Search className="absolute left-5 top-3 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search messages..." 
+            placeholder="Search messages" 
             className="pl-12 h-10 rounded-xl bg-muted/40 border-border/50 text-xs w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -87,9 +87,27 @@ export function ConversationList() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-center px-4">
-              <MessageSquare className="h-8 w-8 text-muted-foreground/30 mb-2" />
-              <p className="text-xs text-muted-foreground">No conversations found.</p>
+            <div className="flex flex-col items-center pb-8 px-4 h-full w-full" style={{ paddingTop: 'calc(22vh - 52px)' }}>
+              <div className="flex flex-col items-center w-full max-w-[420px] text-center">
+                <div className="mb-[16px]">
+                  <img
+                    src="/brand/brand-marks/monochrome/Black%20Outlined.svg"
+                    alt="Moots"
+                    className="h-[72px] w-[72px] opacity-40 dark:hidden object-contain"
+                  />
+                  <img
+                    src="/brand/brand-marks/monochrome/White%20Outlined.svg"
+                    alt="Moots"
+                    className="h-[72px] w-[72px] opacity-40 hidden dark:block object-contain"
+                  />
+                </div>
+                <h1 className="text-[18px] leading-[26px] font-semibold text-foreground mb-2">
+                  No conversations yet
+                </h1>
+                <p className="text-[16px] leading-[24px] font-normal text-muted-foreground max-w-[420px]">
+                  Your conversations will appear here
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -113,8 +131,8 @@ export function ConversationList() {
                 >
                   <div onClick={() => router.push(`/chat/${chat.id}`)} role="button" tabIndex={0}>
                     <div className="flex items-center gap-4 w-full overflow-hidden">
-                    <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-primary/10")}>
-                      <span className={cn("text-xs font-medium text-primary")}>{initials}</span>
+                    <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-muted")}>
+                      <span className={cn("text-xs font-medium text-muted-foreground")}>{initials}</span>
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="flex justify-between w-full items-center mb-0.5">

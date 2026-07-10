@@ -120,7 +120,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               disabled={loading}
               className="h-10 px-5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold"
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? "Saving" : "Save"}
             </Button>
           </div>
         </form>

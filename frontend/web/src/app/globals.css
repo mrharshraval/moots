@@ -56,7 +56,7 @@
     --card-foreground: #1c1c1e;
     --popover: #ffffff;
     --popover-foreground: #1c1c1e;
-    --primary: #1c1c1e;
+    --primary: #0a84ff;
     --primary-foreground: #ffffff;
     --secondary: #f2f2f7;
     --secondary-foreground: #1c1c1e;
@@ -97,8 +97,8 @@
     --card-foreground: #ececec;
     --popover: #1a1a1a;
     --popover-foreground: #ececec;
-    --primary: #ffffff;
-    --primary-foreground: #000000;
+    --primary: #0a84ff;
+    --primary-foreground: #ffffff;
     --secondary: #2f2f2f;
     --secondary-foreground: #ececec;
     --muted: #1f1f1f;
@@ -125,9 +125,11 @@
     * {
         @apply border-border outline-ring/50;
     }
+
     html {
         @apply font-sans;
     }
+
     body {
         @apply bg-background text-foreground;
     }
@@ -138,30 +140,43 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
+
 .scrollbar-none::-webkit-scrollbar {
     display: none;
 }
 
 /* Bounce animation delays for typing indicator */
-.delay-75  { animation-delay: 75ms; }
-.delay-150 { animation-delay: 150ms; }
-.delay-225 { animation-delay: 225ms; }
+.delay-75 {
+    animation-delay: 75ms;
+}
+
+.delay-150 {
+    animation-delay: 150ms;
+}
+
+.delay-225 {
+    animation-delay: 225ms;
+}
 
 /* Custom premium scrollbar styling (thin, trackless) */
 .custom-scrollbar::-webkit-scrollbar {
     width: 4px !important;
     height: 4px !important;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent !important;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(128, 128, 128, 0.3) !important;
     border-radius: 9999px !important;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(128, 128, 128, 0.5) !important;
 }
+
 .custom-scrollbar {
     scrollbar-width: thin !important;
     scrollbar-color: rgba(128, 128, 128, 0.3) transparent !important;
@@ -173,18 +188,22 @@
         left: -40%;
         width: 40%;
     }
+
     50% {
         left: 20%;
         width: 60%;
     }
+
     100% {
         left: 100%;
         width: 40%;
     }
 }
+
 .animate-progress-slide {
     position: absolute;
     height: 100%;
     background-color: var(--primary);
     animation: progress-slide 2s infinite ease-in-out;
-}
+}
+

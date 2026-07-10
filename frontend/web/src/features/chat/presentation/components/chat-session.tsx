@@ -13,6 +13,7 @@ import { ActionBar } from "@/features/chat/presentation/components/action-bar"
 import { SessionDisconnected } from "@/features/chat/presentation/components/session-disconnected"
 import { TouchContextSheet } from "@/features/chat/presentation/components/touch-context-sheet"
 import { useMatchmakingFlow } from "@/features/matchmaking"
+import { useMatchmakingStore } from "@/features/matchmaking/presentation/store/matchmaking-store"
 import { CallOverlay } from "./call-overlay"
 
 export interface ChatSessionProps {
@@ -70,12 +71,16 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
   } = useChatSession(sessionId, session)
 
   const { startMatchmaking: startLocalMatching, cancelMatchmaking: cancelLocalMatching } = useMatchmakingFlow()
+  const matchedSessionId = useMatchmakingStore((state) => state.matchedSessionId)
+  const isNewMatch = matchedSessionId === sessionId
 
   // Page state computation
   const pageState = React.useMemo(() => {
     if (isStrangerDisconnected) return "disconnected"
-    return isWsReady ? "active" : "matching"
-  }, [isWsReady, isStrangerDisconnected])
+    // Only return matching state for brand new matches that are still connecting.
+    // Existing chats should instantly be "active" to prevent layout shifts.
+    return (isWsReady || !isNewMatch) ? "active" : "matching"
+  }, [isWsReady, isStrangerDisconnected, isNewMatch])
 
   // Scroll details
   const [showScrollBtn, setShowScrollBtn] = React.useState(false)
@@ -140,11 +145,44 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
 
   return (
     <div className="flex flex-col h-full bg-background relative">
-      {/* Active or Disconnected (Engaged) */}
-      {(pageState === "active" || (pageState === "disconnected" && isEngaged)) ? (
-        <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Connecting State (Matches MatchmakerView layout to prevent flicker for NEW matches only) */}
+      {pageState === "matching" && isNewMatch && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center pt-[22vh] pb-8 px-4 bg-background h-full w-full">
+          <div className="flex flex-col items-center w-full max-w-[420px] text-center">
+            <div className="mb-[16px] flex justify-center">
+              <img
+                src="/brand/brand-marks/monochrome/Balck%20Filled.svg"
+                alt="Moots"
+                className="h-[72px] w-[72px] opacity-40 dark:hidden object-contain"
+              />
+              <img
+                src="/brand/brand-marks/monochrome/White%20Filled.svg"
+                alt="Moots"
+                className="h-[72px] w-[72px] opacity-40 hidden dark:block object-contain"
+              />
+            </div>
+            <h1 className="text-[18px] leading-[26px] font-semibold text-foreground mb-2">
+              Match Found
+            </h1>
+            <p className="text-[16px] leading-[24px] font-normal text-muted-foreground mb-[24px] w-full max-w-[420px]">
+              Connecting to chat...
+            </p>
+            <div className="w-full flex flex-col items-center">
+              <div className="flex flex-col gap-4 mb-[24px] justify-center items-center">
+                <span className="text-sm text-primary font-medium select-none animate-pulse">
+                  Opening conversation
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat Layout (Active or Matching or Engaged Disconnected) */}
+      {(pageState === "active" || pageState === "matching" || (pageState === "disconnected" && isEngaged)) ? (
+        <div className="flex flex-col flex-1 overflow-hidden relative">
           {/* Action Bar */}
-          {pageState === "active" && (
+          {(pageState === "active" || pageState === "matching") && (
             <ActionBar
               partnerRevealedIdentity={partnerRevealedIdentity}
               connectionStatus={connectionStatus}
@@ -208,7 +246,7 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
       )}
 
       {/* Chat Input sticky bar */}
-      {pageState === "active" && (
+      {(pageState === "active" || pageState === "matching") && (
         <ChatInput
           inputText={inputText}
           handleInputChange={handleInputChange}

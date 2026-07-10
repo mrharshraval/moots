@@ -8,19 +8,16 @@ import { Button } from "@/shared/ui/button"
 import { Badge } from "@/shared/ui/badge"
 import { cn } from "@/shared/utils/utils"
 
-import { useNotificationStore } from "@/features/notifications"
 import { ConversationList } from "@/features/conversations"
-import { NotificationsPanel } from "@/features/notifications"
 
 export function SecondaryNav() {
   const pathname = usePathname()
   
-  // Only render on /chat or /notifications
+  // Only render on /chat
   const isChat = pathname.startsWith("/chat")
-  const isNotifications = pathname.startsWith("/notifications")
-  const isRoot = pathname === "/chat" || pathname === "/notifications"
+  const isRoot = pathname === "/chat"
 
-  if (!isChat && !isNotifications) {
+  if (!isChat) {
     return null
   }
 
@@ -34,8 +31,7 @@ export function SecondaryNav() {
       )}
       style={{ "--sidebar-width": "360px" } as React.CSSProperties}
     >
-      {isChat && <ConversationList />}
-      {isNotifications && <NotificationsPanel />}
+      <ConversationList />
     </Sidebar>
   )
 }

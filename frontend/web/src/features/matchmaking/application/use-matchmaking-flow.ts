@@ -10,17 +10,10 @@ export function useMatchmakingFlow() {
   const { actorId, displayName, username } = useActorSession()
   const { status, setStatus, matchedSessionId, setMatchedSessionId } = useMatchmakingStore()
   
-  const [interests, setInterests] = useState<string[]>(["gaming", "music", "movies"])
+  const [interests, setInterests] = useState<string[]>([])
   const [seconds, setSeconds] = useState(0)
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem("moots_interests")
-    if (saved) {
-      setInterests(saved.split(",").filter(Boolean))
-    }
-  }, [])
 
   useEffect(() => {
     if (status === "searching") {
@@ -57,8 +50,16 @@ export function useMatchmakingFlow() {
   }, [status, router, setStatus, setMatchedSessionId])
 
   const startMatchmaking = (targetInterests?: string[]) => {
-    const activeInterests = targetInterests || interests
-    sessionStorage.setItem("moots_interests", activeInterests.join(","))
+    let activeInterests = targetInterests
+    if (!activeInterests) {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("moots-interests")
+        activeInterests = saved ? JSON.parse(saved) : []
+      } else {
+        activeInterests = []
+      }
+    }
+    
     setInterests(activeInterests)
     setStatus("searching")
     setMatchedSessionId(null)

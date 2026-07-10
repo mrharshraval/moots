@@ -111,7 +111,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-6 max-w-3xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Frequently Asked Questions</h2>
-            <p className="text-xs text-muted-foreground mt-2">Answers to common queries about matchmaking, privacy, and guidelines.</p>
+            <p className="text-xs text-muted-foreground mt-2">Answers to common queries about matchmaking, privacy, and guidelines</p>
           </div>
 
           <Accordion type="single" collapsible className="w-full">

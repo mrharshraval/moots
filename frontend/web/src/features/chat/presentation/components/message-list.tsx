@@ -108,7 +108,7 @@ export function MessageList({
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Status:</span>
                           <span className="font-semibold">
-                            {msg.seen ? "Seen" : msg.status === "SENDING" ? "Sending..." : msg.status === "DELIVERED" ? "Delivered" : msg.status === "PERSISTED" ? "Sent" : msg.status === "FAILED" ? "Failed to send" : "Sent"}
+                            {msg.seen ? "Seen" : msg.status === "SENDING" ? "Sending" : msg.status === "DELIVERED" ? "Delivered" : msg.status === "PERSISTED" ? "Sent" : msg.status === "FAILED" ? "Failed to send" : "Sent"}
                             {msg.edited && " (Edited)"}
                           </span>
                         </div>
@@ -210,7 +210,7 @@ export function MessageList({
                     {msg.seen ? (
                       <span className="text-primary flex items-center gap-0.5"><CheckCheck className="w-3 h-3" /> Seen</span>
                     ) : msg.status === "SENDING" ? (
-                      <span>Sending...</span>
+                      <span>Sending</span>
                     ) : msg.status === "DELIVERED" ? (
                       <span>Delivered</span>
                     ) : (

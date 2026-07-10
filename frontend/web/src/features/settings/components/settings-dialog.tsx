@@ -42,7 +42,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type TabType = "general" | "notifications" | "personalization" | "privacy" | "security" | "account" | "help";
+type TabType = "general" | "personalization" | "privacy" | "security" | "account" | "help";
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = React.useState<TabType>("general");
@@ -58,10 +58,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     loading,
     language,
     setLanguage,
-    soundEnabled,
-    setSoundEnabled,
-    pushEnabled,
-    setPushEnabled,
     accent,
     handleAccentChange,
     handleUpdatePassword,
@@ -71,7 +67,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   const menuItems = [
     { id: "general", label: "General", icon: Settings },
-    { id: "notifications", label: "Notifications", icon: Bell },
+
     { id: "personalization", label: "Personalization", icon: Palette },
     { id: "privacy", label: "Privacy", icon: Eye },
     { id: "security", label: "Security", icon: Shield },
@@ -141,7 +137,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium text-foreground">Preferred Language</Label>
-                    <p className="text-xs text-muted-foreground">Default matchmaking language feed.</p>
+                    <p className="text-xs text-muted-foreground">Default matchmaking language feed</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Globe className="size-4 text-muted-foreground" />
@@ -162,7 +158,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="flex items-center justify-between py-2 border-t border-border">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium text-foreground">Queue Speed Mode</Label>
-                    <p className="text-xs text-muted-foreground">Optimize search speed vs interest match depth.</p>
+                    <p className="text-xs text-muted-foreground">Optimize search speed vs interest match depth</p>
                   </div>
                   <Select defaultValue="balanced">
                     <SelectTrigger className="w-[120px] bg-muted border-border text-foreground hover:bg-accent cursor-pointer">
@@ -178,34 +174,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
             )}
 
-            {/* ── NOTIFICATIONS TAB ── */}
-            {activeTab === "notifications" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between py-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium text-foreground">Sound Alerts</Label>
-                    <p className="text-xs text-muted-foreground">Play audio cues on incoming chats and message counts.</p>
-                  </div>
-                  <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-t border-border">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium text-foreground">Offline Push Alerts</Label>
-                    <p className="text-xs text-muted-foreground">Send standard browser triggers when you are offline.</p>
-                  </div>
-                  <Switch checked={pushEnabled} onCheckedChange={setPushEnabled} />
-                </div>
-              </div>
-            )}
-
             {/* ── PERSONALIZATION (Appearance) TAB ── */}
             {activeTab === "personalization" && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium text-foreground">Appearance</Label>
-                    <p className="text-xs text-muted-foreground">Toggle hooks display theme.</p>
+                    <p className="text-xs text-muted-foreground">Toggle display theme</p>
                   </div>
                   <Select value={theme} onValueChange={(val) => setTheme(val)}>
                     <SelectTrigger className="w-[120px] bg-muted border-border text-foreground hover:bg-accent cursor-pointer">
@@ -238,7 +213,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="py-4 border-t border-border space-y-3">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium text-foreground">Cookie Consent Preferences</Label>
-                    <p className="text-xs text-muted-foreground mb-3">Manage analytical, functional, and customization cookies settings.</p>
+                    <p className="text-xs text-muted-foreground mb-3">Manage analytical, functional, and customization cookies settings</p>
                   </div>
                   <Button 
                     onClick={() => {
@@ -256,7 +231,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="py-4 border-t border-border space-y-3">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium text-foreground">Data Export & Portability</Label>
-                    <p className="text-xs text-muted-foreground mb-3">Download a copy of your chat transcripts and account info.</p>
+                    <p className="text-xs text-muted-foreground mb-3">Download a copy of your chat transcripts and account info</p>
                   </div>
                   <Button onClick={handleDataExport} variant="outline" className="text-xs font-semibold h-9 gap-2 border-border text-foreground hover:bg-accent cursor-pointer">
                     <Download className="size-3.5" /> Request Data Export
@@ -271,7 +246,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-foreground">Active Sessions</Label>
                   <div className="flex gap-3 items-start border border-border p-3 rounded-xl bg-muted/20">
-                    <History className="size-4.5 text-primary shrink-0 mt-0.5" />
+                    <History className="size-4.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex flex-col">
                       <span className="text-xs font-medium text-foreground">Chrome on Windows (Current)</span>
                       <span className="text-[10px] text-muted-foreground mt-0.5">IP: 192.168.1.10 • Active now</span>
@@ -305,7 +280,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                  <form onSubmit={handleUpdatePassword} className="space-y-4 border-t border-border pt-4">
                    <Label className="text-sm font-medium text-foreground">Change Password</Label>
                    
-                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-ring focus-within:border-ring transition-all">
                      <Label htmlFor="sec-pass" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">New Password</Label>
                      <div className="relative flex items-center mt-0.5">
                        <Lock className="absolute left-0 size-4 text-muted-foreground" />
@@ -321,7 +296,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                      </div>
                    </div>
  
-                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
+                   <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-ring focus-within:border-ring transition-all">
                      <Label htmlFor="sec-conf-pass" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">Confirm Password</Label>
                      <div className="relative flex items-center mt-0.5">
                        <Lock className="absolute left-0 size-4 text-muted-foreground" />
@@ -338,7 +313,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                    </div>
  
                    <Button type="submit" className="text-xs font-semibold h-9 px-4 mt-2" disabled={loading}>
-                     {loading ? "Updating..." : "Update Password"}
+                     {loading ? "Updating" : "Update Password"}
                    </Button>
                 </form>
 

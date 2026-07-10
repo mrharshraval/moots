@@ -82,8 +82,8 @@ export function VerifyOtpForm() {
         {success ? (
           <div className="flex flex-col items-center justify-center space-y-3 py-6 text-center">
             <CheckCircle2 className="h-14 w-14 text-emerald-500 animate-bounce" />
-            <h3 className="font-bold text-foreground text-sm">Verification Complete!</h3>
-            <p className="text-xs text-muted-foreground">Redirecting you to login...</p>
+            <h3 className="font-bold text-foreground text-sm">Verification Complete</h3>
+            <p className="text-xs text-muted-foreground">Redirecting to login</p>
           </div>
         ) : (
           <form onSubmit={handleVerify} className="space-y-4">
@@ -117,7 +117,7 @@ export function VerifyOtpForm() {
               />
             </div>
             <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
-              {loading ? "Verifying..." : "Verify Code"}
+              {loading ? "Verifying" : "Verify Code"}
             </Button>
           </form>
         )}

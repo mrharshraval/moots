@@ -27,7 +27,7 @@ export function ProfileCard() {
   if (!user) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <p className="text-sm text-muted-foreground">Please log in to view your profile.</p>
+            <p className="text-sm text-muted-foreground mt-2">Please log in to view your profile</p>
       </div>
     )
   }
@@ -45,7 +45,7 @@ export function ProfileCard() {
       </div>
 
       <Card className="border-border bg-card overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-primary/10 via-primary/20 to-primary/10" />
+        <div className="h-24 bg-muted border-b border-border" />
         <CardHeader className="relative pb-4">
           <div className="absolute -top-12 left-6 flex items-end gap-4">
             <Avatar className="size-20 border-4 border-card rounded-full shadow-md">
@@ -58,7 +58,7 @@ export function ProfileCard() {
               )}
             </Avatar>
             <div className="pb-1">
-              <Label htmlFor="avatar-upload" className="cursor-pointer text-xs font-semibold text-primary hover:underline bg-muted/40 px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-muted/80">
+              <Label htmlFor="avatar-upload" className="cursor-pointer text-xs font-semibold text-foreground hover:underline bg-muted/40 px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-muted/80">
                 Upload Avatar
               </Label>
               <Input
@@ -93,7 +93,7 @@ export function ProfileCard() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
+                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="Display name"
                     disabled={loading}
                   />
@@ -111,7 +111,7 @@ export function ProfileCard() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
+                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="username"
                     disabled={loading}
                   />
@@ -145,8 +145,8 @@ export function ProfileCard() {
                   id="bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="pl-9 min-h-[80px] border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
-                  placeholder="Tell us about yourself..."
+                  className="pl-9 min-h-[80px] border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="Tell us about yourself"
                   disabled={loading}
                 />
               </div>
@@ -158,7 +158,7 @@ export function ProfileCard() {
             </div>
 
             <Button type="submit" className="text-xs font-semibold h-10 px-6 mt-2" disabled={loading}>
-              {loading ? "Saving Profile..." : "Save Identity"}
+              {loading ? "Saving Profile" : "Save Identity"}
             </Button>
           </form>
         </CardContent>

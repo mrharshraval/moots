@@ -235,7 +235,7 @@ export default function GroupsPage() {
                 </Label>
                 <Textarea
                   id="group-desc"
-                  placeholder="Tell people what this group is all about..."
+                  placeholder="Tell people what this group is all about"
                   value={newGroupDesc}
                   onChange={(e) => setNewGroupDesc(e.target.value)}
                   className="w-full bg-transparent border-none p-0 text-xs text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden resize-none h-20 mt-1"

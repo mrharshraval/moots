@@ -57,7 +57,6 @@ const SUPPORT_EMAIL = env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
 const NAV_ITEMS = [
   { id: "chats",         label: "Chats",         icon: MessageCircle,  href: "/chat" },
-  { id: "notifications", label: "Notifications", icon: Bell,           href: "/notifications" },
   { id: "friends",       label: "Friends",       icon: UsersRound,     href: "/friends" },
   { id: "groups",        label: "Groups",        icon: Globe,          href: "/groups" },
 ]

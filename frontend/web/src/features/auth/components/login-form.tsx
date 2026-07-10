@@ -56,7 +56,7 @@ export function LoginForm() {
         redirect: false,
       });
 
-      toast.success("Welcome back!");
+      toast.success("Welcome back");
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -114,7 +114,7 @@ export function LoginForm() {
              </div>
            </div>
            <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
-             {loading ? "Logging in..." : "Log In"}
+             {loading ? "Logging in" : "Log In"}
            </Button>
          </form>
       </CardContent>

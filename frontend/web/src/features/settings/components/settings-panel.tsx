@@ -23,6 +23,7 @@ import {
   Link as LinkIcon
 } from "lucide-react"
 
+import { InterestSelector } from "@/features/matchmaking"
 import { useSettings } from "../hooks/use-settings"
 
 export function SettingsPanel() {
@@ -37,10 +38,13 @@ export function SettingsPanel() {
     loading,
     language,
     setLanguage,
-    soundEnabled,
-    setSoundEnabled,
-    pushEnabled,
-    setPushEnabled,
+
+    accent,
+    handleAccentChange,
+    interests,
+    customTopics,
+    handleToggleTopic,
+    handleAddCustom,
     handleUpdatePassword,
     handleDeleteAccount,
     handleDataExport
@@ -112,7 +116,7 @@ export function SettingsPanel() {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
+                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
                         disabled={loading}
                       />
                     </div>
@@ -128,14 +132,14 @@ export function SettingsPanel() {
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus:ring-1 focus:ring-primary"
+                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
                         disabled={loading}
                       />
                     </div>
                   </div>
 
                   <Button type="submit" className="text-xs font-semibold h-10 px-6" disabled={loading}>
-                    {loading ? "Updating..." : "Update Password"}
+                    {loading ? "Updating" : "Update Password"}
                   </Button>
                 </form>
               </CardContent>
@@ -163,6 +167,23 @@ export function SettingsPanel() {
           <TabsContent value="preferences" className="mt-0 space-y-4">
             <Card className="border-border bg-card">
               <CardHeader>
+                <CardTitle className="text-lg font-bold text-foreground">Matchmaking Interests</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Choose your preferred topics. These will be used automatically when you start matching.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InterestSelector
+                  selected={interests}
+                  customTopics={customTopics}
+                  onToggle={handleToggleTopic}
+                  onAddCustom={handleAddCustom}
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card">
+              <CardHeader>
                 <CardTitle className="text-lg font-bold text-foreground">App Preferences</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
                   Configure display details and notifications alerts.
@@ -173,7 +194,7 @@ export function SettingsPanel() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold text-foreground">Theme Mode</Label>
-                    <p className="text-[10px] text-muted-foreground">Toggle hooks color palette.</p>
+                    <p className="text-[10px] text-muted-foreground">Toggle color palette</p>
                   </div>
                   <div className="flex gap-1.5 bg-muted/40 p-1 rounded-lg">
                     {["light", "dark"].map((t) => (
@@ -194,14 +215,14 @@ export function SettingsPanel() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold text-foreground">Preferred Language</Label>
-                    <p className="text-[10px] text-muted-foreground">Default matching language.</p>
+                    <p className="text-[10px] text-muted-foreground">Default matching language</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <Globe className="h-4 w-4 text-muted-foreground" />
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="bg-background border border-border text-xs rounded-lg p-1.5 focus:ring-1 focus:ring-primary text-foreground"
+                      className="bg-background border border-border text-xs rounded-lg p-1.5 focus-visible:ring-1 focus-visible:ring-ring text-foreground"
                     >
                       <option value="en">English</option>
                       <option value="es">Español</option>
@@ -211,23 +232,6 @@ export function SettingsPanel() {
                   </div>
                 </div>
 
-                {/* Sound Alerts */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold text-foreground">Sound Cues</Label>
-                    <p className="text-[10px] text-muted-foreground">Play sounds on incoming matches and messages.</p>
-                  </div>
-                  <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
-                </div>
-
-                {/* Push Notifications */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold text-foreground">Offline Push Alerts</Label>
-                    <p className="text-[10px] text-muted-foreground">Send background notifications for new friend requests.</p>
-                  </div>
-                  <Switch checked={pushEnabled} onCheckedChange={setPushEnabled} />
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -282,7 +286,7 @@ export function SettingsPanel() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between border-b border-border/40 pb-3 last:border-0 last:pb-0">
                   <div className="flex gap-3">
-                    <History className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <History className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-foreground">Chrome on Windows (Current)</span>
                       <span className="text-[10px] text-muted-foreground mt-0.5">IP: 192.168.1.10 • Active now</span>

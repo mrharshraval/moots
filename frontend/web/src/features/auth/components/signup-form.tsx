@@ -48,7 +48,7 @@ export function SignupForm() {
         return;
       }
 
-      toast.success("Verification OTP sent to your email!");
+      toast.success("Verification OTP sent to your email");
       router.push(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err) {
       console.error(err);
@@ -142,7 +142,7 @@ export function SignupForm() {
               </div>
             </div>
             <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading || !agreeAge || !agreeTerms}>
-              {loading ? "Sending OTP..." : "Sign Up"}
+              {loading ? "Sending OTP" : "Sign Up"}
             </Button>
           </form>
       </CardContent>

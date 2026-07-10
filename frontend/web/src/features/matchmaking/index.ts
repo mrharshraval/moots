@@ -1,3 +1,4 @@
 export { useMatchmakingFlow } from "./application/use-matchmaking-flow";
-export { MatchmakerDialog } from "./presentation/components/matchmaker-dialog";
+export { MatchmakerView } from "./presentation/components/matchmaker-view";
 export { MatchmakingQueue } from "./presentation/components/matchmaking-queue";
+export { InterestSelector } from "./presentation/components/interest-selector";

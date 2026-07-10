@@ -112,7 +112,7 @@ export function CallOverlay({
         <h2 className="mt-4 text-xl font-semibold tracking-wide">{peerDisplayName}</h2>
         <p className="mt-1 text-xs text-zinc-400 font-light uppercase tracking-wider">
           {callState === "ringing_incoming" && `Incoming ${callType?.toLowerCase()} call`}
-          {callState === "ringing_outgoing" && "Ringing..."}
+          {callState === "ringing_outgoing" && "Ringing"}
           {callState === "active" && (callType === "VIDEO" ? "Video Chatting" : "Voice Chatting")}
         </p>
         {callState === "active" && (
