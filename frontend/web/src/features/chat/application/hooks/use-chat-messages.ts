@@ -34,6 +34,7 @@ export function useChatMessages({
   const {
     setPeerIdentity,
     setIsStrangerDisconnected,
+    setIsWsReady,
   } = usePartnerStateStore()
 
   const setMessages = React.useCallback((updater: Message[] | ((prev: Message[]) => Message[])) => {
@@ -166,6 +167,7 @@ export function useChatMessages({
         sessionStorage.setItem("moots_userId", payload.selfId)
       }
       ConversationRepository.fetchConversations().catch(console.error)
+      setIsWsReady(true)
       sendReadReceipt()
     }
 
@@ -248,7 +250,7 @@ export function useChatMessages({
       wsGateway.off("partner-joined", handlePartnerJoined)
       wsGateway.off("partner-disconnected", handlePartnerDisconnected)
     }
-  }, [sessionId, setMessages, setPeerIdentity, setIsStrangerDisconnected, sendReadReceipt])
+  }, [sessionId, setMessages, setPeerIdentity, setIsStrangerDisconnected, setIsWsReady, sendReadReceipt])
 
   const isEngaged = React.useMemo(() => {
     return messages.some((m) => m.sender === "user") && messages.some((m) => m.sender === "stranger")

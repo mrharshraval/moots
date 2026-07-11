@@ -110,12 +110,13 @@ export function useChatSession(sessionId: string, session: Session | null) {
     return peerUsername || peerNickname
   }, [peerUsername, peerNickname])
 
-  // 10. Partner store cleanup on unmount
+  // 10. Partner store cleanup on session change and unmount
   React.useEffect(() => {
+    resetPartnerState()
     return () => {
       resetPartnerState()
     }
-  }, [resetPartnerState])
+  }, [sessionId, resetPartnerState])
 
   return {
     userId,

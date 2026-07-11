@@ -26,7 +26,6 @@ export function useWebSocketSession({
 
   React.useEffect(() => {
     const handleOpen = () => {
-      setIsWsReady(true)
       const currentSession = sessionRef.current
       wsGateway.send("join-chat", {
         nickname: getOrInitializeNickname(),
