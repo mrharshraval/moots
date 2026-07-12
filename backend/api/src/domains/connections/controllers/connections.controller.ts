@@ -47,4 +47,34 @@ export class ConnectionsController {
     const connection = await this.service.removeConnection(actorId, id);
     return sendSuccess(res, connection);
   });
+
+  getConnections = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    const cursor = req.query.cursor as string | undefined;
+    const result = await this.service.getConnections(actorId, limit, cursor);
+    return sendSuccess(res, result);
+  });
+
+  getPendingRequests = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    const cursor = req.query.cursor as string | undefined;
+    const result = await this.service.getPendingRequests(actorId, limit, cursor);
+    return sendSuccess(res, result);
+  });
+
+  rejectConnection = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const partnerId = req.params.id as string;
+    const connection = await this.service.rejectConnection(actorId, partnerId);
+    return sendSuccess(res, connection);
+  });
+
+  cancelConnection = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const partnerId = req.params.id as string;
+    const connection = await this.service.cancelConnection(actorId, partnerId);
+    return sendSuccess(res, connection);
+  });
 }

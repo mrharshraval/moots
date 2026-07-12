@@ -34,9 +34,6 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     isStrangerDisconnected,
     setIsStrangerDisconnected,
     isTyping,
-    hasRevealedIdentity,
-    partnerRevealedIdentity,
-    connectionStatus,
     isWsReady,
     inputText,
     setInputText,
@@ -47,9 +44,6 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     expandedMsgs,
     toggleExpand,
     handleReact,
-    handleRevealIdentity,
-    handleSendConnectionRequest,
-    handleAcceptConnectionRequest,
     handleInputChange,
     handleSend,
     messages,
@@ -67,7 +61,8 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     declineCall,
     endCall,
     toggleMute,
-    toggleCamera
+    toggleCamera,
+    conversationStatus
   } = useChatSession(sessionId, session)
 
   const { startMatchmaking: startLocalMatching, cancelMatchmaking: cancelLocalMatching } = useMatchmakingFlow()
@@ -182,17 +177,14 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
       {(pageState === "active" || pageState === "matching" || (pageState === "disconnected" && isEngaged)) ? (
         <div className="flex flex-col flex-1 overflow-hidden relative">
           {/* Action Bar */}
-          {(pageState === "active" || pageState === "matching") && (
+          {(pageState === "active" || pageState === "matching") && conversationStatus !== "ENDED" && (
             <ActionBar
-              partnerRevealedIdentity={partnerRevealedIdentity}
-              connectionStatus={connectionStatus}
-              hasRevealedIdentity={hasRevealedIdentity}
               isUserLoggedIn={!!session?.user}
-              handleRevealIdentity={handleRevealIdentity}
-              handleSendConnectionRequest={handleSendConnectionRequest}
-              handleAcceptConnectionRequest={handleAcceptConnectionRequest}
               onVoiceCall={() => initiateCall("AUDIO")}
               onVideoCall={() => initiateCall("VIDEO")}
+              connectionStatus="none"
+              handleSendConnectionRequest={() => {}}
+              handleAcceptConnectionRequest={() => {}}
             />
           )}
 
@@ -246,7 +238,7 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
       )}
 
       {/* Chat Input sticky bar */}
-      {(pageState === "active" || pageState === "matching") && (
+      {(pageState === "active" || pageState === "matching") && conversationStatus !== "ENDED" && (
         <ChatInput
           inputText={inputText}
           handleInputChange={handleInputChange}
@@ -261,6 +253,12 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
           setInputText={setInputText}
           textareaRef={textareaRef}
         />
+      )}
+      
+      {conversationStatus === "ENDED" && (
+        <div className="p-4 bg-muted/30 text-center text-sm text-muted-foreground border-t border-border/50 select-none">
+          This conversation has ended. You can view the chat history for up to 24 hours.
+        </div>
       )}
 
       {/* Mobile Touch Context Sheet */}

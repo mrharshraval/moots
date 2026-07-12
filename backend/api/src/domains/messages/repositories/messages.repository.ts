@@ -35,11 +35,12 @@ export class MessagesRepository {
     });
   }
 
-  async findByCursor(conversationId: string, limit: number = 50, cursor?: string) {
+  async findByCursor(conversationId: string, limit: number = 50, cursor?: string, historyClearedAt?: Date | null) {
     return prisma.message.findMany({
       where: {
         conversationId,
         deletedAt: null,
+        ...(historyClearedAt ? { createdAt: { gt: historyClearedAt } } : {})
       },
       take: limit,
       skip: cursor ? 1 : 0,

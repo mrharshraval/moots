@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   GetUserConversationsSchema,
   UpdateConversationSettingsSchema,
-  DeleteConversationSchema,
+  EndConversationSchema,
   RevealIdentityInternalSchema,
   CreateGroupConversationSchema,
   CreateGroupInviteSchema,
@@ -36,7 +36,7 @@ export interface ConversationSummaryDTO {
 
 export type GetUserConversationsInput = z.infer<typeof GetUserConversationsSchema>;
 export type UpdateConversationSettingsInput = z.infer<typeof UpdateConversationSettingsSchema>;
-export type DeleteConversationInput = z.infer<typeof DeleteConversationSchema>;
+export type EndConversationInput = z.infer<typeof EndConversationSchema>;
 export type RevealIdentityInternalInput = z.infer<typeof RevealIdentityInternalSchema>["body"];
 export type CreateGroupConversationInput = z.infer<typeof CreateGroupConversationSchema>;
 export type CreateGroupInviteInput = z.infer<typeof CreateGroupInviteSchema>;

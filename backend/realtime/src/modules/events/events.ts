@@ -258,27 +258,41 @@ export function handleDomainEvent(event: DomainEvent) {
       break;
     }
 
-    case "identity.reveal_confirmed": {
+    case "connection.rejected": {
       const payload = event.payload;
-      const { conversationId, actorId } = payload;
-      const session = sessionService.getSession(conversationId);
-      if (session) {
-        const partnerId = session.users.find((id) => id !== actorId);
-        if (partnerId) {
-          const conn = registry.getConnectionByActorId(partnerId, "chat");
-          if (conn && conn.ws) {
+      const { connectionId, actorId1, actorId2 } = payload;
+      [actorId1, actorId2].forEach((actorId) => {
+        const connections = registry.getConnectionsByActorId(actorId);
+        for (const conn of connections) {
+          if (conn.ws) {
             conn.ws.send(
               JSON.stringify({
-                type: "participant:identity-revealed",
-                payload: {
-                  sessionId: conversationId,
-                  actorId,
-                },
+                type: "connection:rejected",
+                payload: { connectionId },
               })
             );
           }
         }
-      }
+      });
+      break;
+    }
+
+    case "connection.cancelled": {
+      const payload = event.payload;
+      const { connectionId, actorId1, actorId2 } = payload;
+      [actorId1, actorId2].forEach((actorId) => {
+        const connections = registry.getConnectionsByActorId(actorId);
+        for (const conn of connections) {
+          if (conn.ws) {
+            conn.ws.send(
+              JSON.stringify({
+                type: "connection:cancelled",
+                payload: { connectionId },
+              })
+            );
+          }
+        }
+      });
       break;
     }
 
@@ -361,6 +375,33 @@ export function handleDomainEvent(event: DomainEvent) {
         type: actionMap[event.eventType as keyof typeof actionMap],
         payload: event.payload
       }, registry);
+      break;
+    }
+
+    case "conversation.hidden": {
+      const { conversationId, actorId, hiddenAt, broadcastRule } = event.payload;
+      if (broadcastRule === "TO_SELF") {
+        const connections = registry.getConnectionsByActorId(actorId);
+        for (const conn of connections) {
+          if (conn.ws) {
+            conn.ws.send(JSON.stringify({
+              type: "conversation:hidden",
+              payload: { conversationId, hiddenAt }
+            }));
+          }
+        }
+      }
+      break;
+    }
+
+    case "conversation.ended": {
+      const { conversationId, endedAt, endedByActorId, broadcastRule } = event.payload;
+      if (broadcastRule === "TO_CONVERSATION") {
+        sessionService.broadcast(conversationId, {
+          type: "conversation:ended",
+          payload: { conversationId, endedAt, endedByActorId }
+        }, registry);
+      }
       break;
     }
   }

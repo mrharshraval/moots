@@ -56,49 +56,93 @@ export class ConversationRepository {
     }
   }
 
-  static async deleteConversation(id: string, clearOnly = false): Promise<void> {
+  static async endConversation(id: string): Promise<void> {
     const store = useMessagesStore.getState()
     const previousConversations = store.conversations || []
     
-    if (clearOnly) {
-      useMessagesStore.setState((state) => ({
-        conversations: (state.conversations || []).map((c) =>
-          c.id === id ? { ...c, lastMessagePreview: null } : c
-        ),
-      }))
-    } else {
-      useMessagesStore.setState((state) => ({
-        conversations: (state.conversations || []).filter((c) => c.id !== id),
-        selectedChatId: state.selectedChatId === id ? null : state.selectedChatId
-      }))
-    }
+    // Optimistically update conversation to ENDED
+    useMessagesStore.setState((state) => ({
+      conversations: (state.conversations || []).map((c) =>
+        c.id === id ? { ...c, status: "ENDED", endedAt: new Date().toISOString() } : c
+      ),
+      selectedChatId: state.selectedChatId === id ? null : state.selectedChatId
+    }))
 
     try {
-      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/conversations/${id}`, {
-        method: "DELETE",
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/conversations/${id}/end`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clearOnly }),
       })
       if (!res.ok) {
         const errText = await res.text()
-        throw new Error(`Failed to delete conversation: ${errText}`)
+        throw new Error(`Failed to end conversation: ${errText}`)
       }
-      
-      if (!clearOnly) {
-        useMessagesStore.setState((state) => ({
-          conversations: (state.conversations || []).map((c) =>
-            c.id === id ? { ...c, status: "ENDED", lastMessagePreview: null } : c
-          ),
-          selectedChatId: state.selectedChatId === id ? null : state.selectedChatId
-        }))
-      } else {
-        useMessagesStore.setState((state) => ({
-          messagesByChatId: {
-            ...state.messagesByChatId,
-            [id]: [],
-          }
-        }))
-      }
+    } catch (error) {
+      useMessagesStore.setState({ conversations: previousConversations })
+      console.error(error)
+      throw error
+    }
+  }
+
+  static async hideConversation(id: string): Promise<void> {
+    const store = useMessagesStore.getState()
+    const previousConversations = store.conversations || []
+    
+    useMessagesStore.setState((state) => ({
+      conversations: (state.conversations || []).map((c) =>
+        c.id === id ? { ...c, hiddenAt: new Date().toISOString() } : c
+      ),
+    }))
+
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/conversations/${id}/hide`, {
+        method: "PATCH",
+      })
+      if (!res.ok) throw new Error("Failed to hide conversation")
+    } catch (error) {
+      useMessagesStore.setState({ conversations: previousConversations })
+      console.error(error)
+      throw error
+    }
+  }
+
+  static async unhideConversation(id: string): Promise<void> {
+    const store = useMessagesStore.getState()
+    const previousConversations = store.conversations || []
+    
+    useMessagesStore.setState((state) => ({
+      conversations: (state.conversations || []).map((c) =>
+        c.id === id ? { ...c, hiddenAt: null } : c
+      ),
+    }))
+
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/conversations/${id}/unhide`, {
+        method: "PATCH",
+      })
+      if (!res.ok) throw new Error("Failed to unhide conversation")
+    } catch (error) {
+      useMessagesStore.setState({ conversations: previousConversations })
+      console.error(error)
+      throw error
+    }
+  }
+
+  static async leaveConversation(id: string): Promise<void> {
+    const store = useMessagesStore.getState()
+    const previousConversations = store.conversations || []
+    
+    useMessagesStore.setState((state) => ({
+      conversations: (state.conversations || []).map((c) =>
+        c.id === id ? { ...c, leftAt: new Date().toISOString() } : c
+      ),
+    }))
+
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/conversations/${id}/leave`, {
+        method: "POST",
+      })
+      if (!res.ok) throw new Error("Failed to leave conversation")
     } catch (error) {
       useMessagesStore.setState({ conversations: previousConversations })
       console.error(error)

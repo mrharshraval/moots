@@ -60,7 +60,7 @@ export function useMatchmakingFlow() {
       }
     }
     
-    setInterests(activeInterests)
+    setInterests(activeInterests || [])
     setStatus("searching")
     setMatchedSessionId(null)
 

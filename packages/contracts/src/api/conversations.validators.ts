@@ -19,12 +19,9 @@ export const UpdateConversationSettingsSchema = z.object({
   }),
 });
 
-export const DeleteConversationSchema = z.object({
+export const EndConversationSchema = z.object({
   params: z.object({
     id: z.string().min(1, "Conversation ID is required"),
-  }),
-  body: z.object({
-    clearOnly: z.boolean().optional(),
   }),
 });
 
@@ -65,6 +62,18 @@ export const KickParticipantSchema = z.object({
 });
 
 export const LeaveConversationSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+  })
+});
+
+export const HideConversationSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+  })
+});
+
+export const UnhideConversationSchema = z.object({
   params: z.object({
     id: z.string().min(1),
   })

@@ -60,12 +60,6 @@ export const GenericPartnerEventPayloadSchema = z.object({
   sessionId: z.string().min(1),
 });
 
-export const IdentityRevealedPayloadSchema = z.object({
-  sessionId: z.string().min(1),
-  username: z.string().nullable().optional(),
-  name: z.string().nullable().optional(),
-  image: z.string().nullable().optional(),
-});
 
 export const AuthenticatePayloadSchema = z.object({
   token: z.string().min(1),
@@ -107,8 +101,6 @@ export const InboundMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connection:request"), payload: GenericPartnerEventPayloadSchema }),
   z.object({ type: z.literal("connection:accepted"), payload: GenericPartnerEventPayloadSchema }),
   z.object({ type: z.literal("connection:removed"), payload: GenericPartnerEventPayloadSchema }),
-  z.object({ type: z.literal("participant:identity-revealed"), payload: IdentityRevealedPayloadSchema }),
-  z.object({ type: z.literal("participant:identity-hidden"), payload: GenericPartnerEventPayloadSchema }),
   z.object({ type: z.literal("webrtc:offer"), payload: WebRTCOfferPayloadSchema }),
   z.object({ type: z.literal("webrtc:answer"), payload: WebRTCAnswerPayloadSchema }),
   z.object({ type: z.literal("webrtc:ice-candidate"), payload: WebRTCIceCandidatePayloadSchema }),

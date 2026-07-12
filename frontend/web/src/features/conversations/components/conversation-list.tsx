@@ -24,6 +24,8 @@ export function ConversationList() {
   // Normally comes from session, fallback for testing
   const USER_ID = session?.user?.id || "cm4y18w4x000008lc6p69g3yq"
 
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
+
   const {
     filter,
     setFilter,
@@ -33,7 +35,8 @@ export function ConversationList() {
     filteredConversations,
     loadMoreRef,
     updateSettings,
-    deleteConversation
+    endConversation,
+    hideConversation
   } = useConversations()
 
   return (
@@ -78,6 +81,14 @@ export function ConversationList() {
           >
             Requests
           </Button>
+          <Button
+            variant={filter === "history" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("history")}
+            className="h-8 text-xs rounded-full px-4"
+          >
+            History
+          </Button>
         </div>
 
         {/* List Content */}
@@ -118,6 +129,7 @@ export function ConversationList() {
               const displayMessage = chat.status === "DELETED" 
                 ? "Conversation ended" 
                 : (chat.lastMessagePreview || "No messages yet.")
+              const isMenuOpen = openMenuId === chat.id
 
               return (
               <div key={chat.id} className="relative group/chat">
@@ -134,72 +146,14 @@ export function ConversationList() {
                     <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-muted")}>
                       <span className={cn("text-xs font-medium text-muted-foreground")}>{initials}</span>
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center relative">
                       <div className="flex justify-between w-full items-center mb-0.5">
                         <span className="font-semibold truncate pr-2">{displayName}</span>
-                        <div className="relative flex items-center shrink-0">
-                          <span className="text-[10px] text-muted-foreground transition-all duration-150 md:group-hover/chat:pr-6 md:focus-within:pr-6 md:group-has-[[data-state=open]]/chat:pr-6">{displayTime}</span>
-                          <div className="absolute right-0 w-6 h-6 opacity-0 md:group-hover/chat:opacity-100 md:focus-within:opacity-100 md:group-has-[[data-state=open]]/chat:opacity-100 hidden md:flex items-center justify-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="flex items-center justify-center text-muted-foreground outline-none bg-transparent border-0 cursor-pointer w-full h-full">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl border border-border/50 bg-background shadow-xl">
-                                <DropdownMenuItem onClick={() => updateSettings(chat.id, { isArchived: !chat.isArchived })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Archive className="size-4" />
-                                  </div>
-                                  <span>{chat.isArchived ? "Unarchive" : "Archive"}</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSettings(chat.id, { isMuted: !chat.isMuted })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <VolumeX className="size-4" />
-                                  </div>
-                                  <span>{chat.isMuted ? "Unmute" : "Mute"}</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSettings(chat.id, { isPinned: !chat.isPinned })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Pin className="size-4" />
-                                  </div>
-                                  <span>{chat.isPinned ? 'Unpin' : 'Pin'}</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSettings(chat.id, { unreadCount: 0 })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Check className="size-4" />
-                                  </div>
-                                  <span>Mark as Read</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Star className="size-4" />
-                                  </div>
-                                  <span>Add to Favorites</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="my-1 bg-border/50" />
-                                <DropdownMenuItem className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Ban className="size-4" />
-                                  </div>
-                                  <span>Block</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteConversation(chat.id, true)} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Eraser className="size-4" />
-                                  </div>
-                                  <span>Clear Chat</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="my-1 bg-border/50" />
-                                <DropdownMenuItem onClick={() => deleteConversation(chat.id, false)} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer focus:text-destructive focus:bg-destructive/10">
-                                  <div className="flex items-center justify-center size-8 shrink-0">
-                                    <Trash2 className="size-4" />
-                                  </div>
-                                  <span>Delete Chat</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                        <div className={cn(
+                          "relative flex items-center shrink-0 transition-opacity duration-150",
+                          isMenuOpen ? "opacity-0" : "md:group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0"
+                        )}>
+                          <span className="text-[10px] text-muted-foreground">{displayTime}</span>
                         </div>
                       </div>
                       <div className="flex justify-between w-full items-center gap-2">
@@ -210,7 +164,10 @@ export function ConversationList() {
                           {displayMessage}
                         </span>
                         {(chat.isPinned || chat.unreadCount > 0) && (
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className={cn(
+                            "flex items-center gap-1.5 shrink-0 transition-opacity duration-150",
+                            isMenuOpen ? "opacity-0" : "md:group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0"
+                          )}>
                             {chat.isPinned && <Pin className="h-3 w-3 text-muted-foreground/60 fill-muted-foreground/20" />}
                             {chat.unreadCount > 0 && (
                               <Badge variant="default" className="h-4 min-w-4 px-1 flex items-center justify-center rounded-full text-[9px] bg-primary text-primary-foreground border-none leading-none">
@@ -219,6 +176,80 @@ export function ConversationList() {
                             )}
                           </div>
                         )}
+                      </div>
+                      
+                      <div className={cn(
+                        "absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 hidden md:flex items-center justify-center transition-opacity duration-150",
+                        isMenuOpen ? "opacity-100" : "opacity-0 md:group-hover/chat:opacity-100 [&:has(:focus-visible)]:opacity-100"
+                      )}>
+                        <DropdownMenu open={isMenuOpen} onOpenChange={(open) => setOpenMenuId(open ? chat.id : null)}>
+                          <DropdownMenuTrigger asChild>
+                            <button className="flex items-center justify-center text-muted-foreground outline-none bg-transparent border-0 cursor-pointer w-full h-full">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl border border-border/50 bg-background shadow-xl">
+                            <DropdownMenuItem onClick={() => updateSettings(chat.id, { isArchived: !chat.isArchived })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <Archive className="size-4" />
+                              </div>
+                              <span>{chat.isArchived ? "Unarchive" : "Archive"}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateSettings(chat.id, { isMuted: !chat.isMuted })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <VolumeX className="size-4" />
+                              </div>
+                              <span>{chat.isMuted ? "Unmute" : "Mute"}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateSettings(chat.id, { isPinned: !chat.isPinned })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <Pin className="size-4" />
+                              </div>
+                              <span>{chat.isPinned ? 'Unpin' : 'Pin'}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateSettings(chat.id, { unreadCount: 0 })} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <Check className="size-4" />
+                              </div>
+                              <span>Mark as Read</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <Star className="size-4" />
+                              </div>
+                              <span>Add to Favorites</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1 bg-border/50" />
+                            <DropdownMenuItem className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer">
+                              <div className="flex items-center justify-center size-8 shrink-0">
+                                <Ban className="size-4" />
+                              </div>
+                              <span>Block</span>
+                            </DropdownMenuItem>
+                            {chat.status !== "ENDED" && chat.kind === "MATCH" && (
+                              <>
+                                <DropdownMenuSeparator className="my-1 bg-border/50" />
+                                <DropdownMenuItem onClick={() => endConversation(chat.id)} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer focus:text-destructive focus:bg-destructive/10">
+                                  <div className="flex items-center justify-center size-8 shrink-0">
+                                    <Trash2 className="size-4" />
+                                  </div>
+                                  <span>End Chat</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {chat.kind !== "MATCH" && (
+                              <>
+                                <DropdownMenuSeparator className="my-1 bg-border/50" />
+                                <DropdownMenuItem onClick={() => hideConversation(chat.id)} className="h-10 rounded-xl text-sm px-2 gap-2 cursor-pointer focus:text-destructive focus:bg-destructive/10">
+                                  <div className="flex items-center justify-center size-8 shrink-0">
+                                    <Trash2 className="size-4" />
+                                  </div>
+                                  <span>Delete Chat</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>

@@ -31,11 +31,15 @@ export class MessagesService {
             conversationId: data.conversationId,
           }
         },
-        select: { id: true }
+        select: { id: true, conversation: { select: { status: true } } }
       });
 
       if (!participant) {
         throw new NotFoundError(`Participant not found for actor ${data.senderParticipantId} in conversation ${data.conversationId}`);
+      }
+
+      if (participant.conversation.status !== 'ACTIVE') {
+        throw new ForbiddenError("Conversation is no longer active");
       }
 
       // Mentions parsing
@@ -126,19 +130,17 @@ export class MessagesService {
         }
       });
 
-      const revealMap = new Map();
-      const personaMap = new Map();
-      const profileMap = new Map();
-
-      revealMap.set(message.senderParticipantId, (message as any).sender.identityState);
-      personaMap.set(message.senderParticipantId, (message as any).sender.persona || { displayName: "Stranger", avatarSeed: (message as any).sender.actorId });
-      profileMap.set(message.senderParticipantId, {
-        id: (message as any).sender.actorId,
-        type: (message as any).sender.actor.type,
-        user: (message as any).sender.actor.user,
+      // Restore visibility for any participant who previously hid this conversation
+      await tx.participant.updateMany({
+        where: { conversationId: data.conversationId, hiddenAt: { not: null } },
+        data: { hiddenAt: null }
       });
 
-      const serializedMessage = this.serializer.serialize(message as any, revealMap, personaMap, profileMap);
+      const personaMap = new Map();
+
+      personaMap.set(message.senderParticipantId, (message as any).sender.persona || { displayName: "Stranger", avatarSeed: (message as any).sender.actorId });
+
+      const serializedMessage = this.serializer.serialize(message as any, personaMap);
 
       await EventBus.publish(tx, "message.persisted", message.id, "Message", {
         id: serializedMessage.id,
@@ -171,30 +173,30 @@ export class MessagesService {
       throw new NotFoundError("Conversation not found");
     }
 
-    const messages = await this.repository.findByCursor(conversationId, limit, cursor);
+    const messages = await this.repository.findByCursor(conversationId, limit, cursor, (participant as any).historyClearedAt);
     
-    const revealMap = new Map();
     const personaMap = new Map();
-    const profileMap = new Map();
 
     for (const msg of messages) {
       const sender: any = (msg as any).sender;
-      revealMap.set(msg.senderParticipantId, sender.identityState);
       personaMap.set(msg.senderParticipantId, sender.persona || { displayName: "Stranger", avatarSeed: sender.actorId });
-      profileMap.set(msg.senderParticipantId, {
-        id: sender.actorId,
-        type: sender.actor.type,
-        user: sender.actor.user,
-      });
     }
 
-    return messages.map((msg: any) => this.serializer.serialize(msg, revealMap, personaMap, profileMap));
+    return messages.map((msg: any) => this.serializer.serialize(msg, personaMap));
   }
 
   async deleteMessage(messageId: string, actorId: string) {
     return prisma.$transaction(async (tx) => {
       const existingMessage = await this.repository.findById(messageId, tx);
       if (!existingMessage) throw new NotFoundError("Message not found");
+
+      const conversation = await tx.conversation.findUnique({
+        where: { id: existingMessage.conversationId },
+        select: { status: true }
+      });
+      if (conversation?.status !== 'ACTIVE') {
+        throw new ForbiddenError("Conversation is no longer active");
+      }
 
       if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot delete a system or orphaned message");
 
@@ -223,6 +225,14 @@ export class MessagesService {
       const existingMessage = await this.repository.findById(messageId, tx);
       if (!existingMessage) throw new NotFoundError("Message not found");
       
+      const conversation = await tx.conversation.findUnique({
+        where: { id: existingMessage.conversationId },
+        select: { status: true }
+      });
+      if (conversation?.status !== 'ACTIVE') {
+        throw new ForbiddenError("Conversation is no longer active");
+      }
+
       if (!existingMessage.senderParticipantId) throw new ForbiddenError("Cannot edit a system or orphaned message");
 
       const senderParticipant: any = await tx.participant.findUnique({
@@ -262,6 +272,14 @@ export class MessagesService {
     return prisma.$transaction(async (tx) => {
       const message = await this.repository.findById(messageId, tx);
       if (!message) throw new NotFoundError("Message not found");
+
+      const conversation = await tx.conversation.findUnique({
+        where: { id: message.conversationId },
+        select: { status: true }
+      });
+      if (conversation?.status !== 'ACTIVE') {
+        throw new ForbiddenError("Conversation is no longer active");
+      }
 
       const participant = await tx.participant.findUnique({
         where: {

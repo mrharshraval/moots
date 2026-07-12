@@ -3,12 +3,13 @@
 import * as React from "react"
 import { Session } from "@/providers/auth-provider"
 import { usePartnerStateStore } from "../presentation/store/partner-state-store"
+import { useMessagesStore } from "@/features/chat"
 
 // Sub-hooks
 import { useWebSocketSession } from "./hooks/use-websocket-session"
 import { useReadReceipts } from "./hooks/use-read-receipts"
 import { useTypingIndicator } from "./hooks/use-typing-indicator"
-import { useIdentityReveal } from "./hooks/use-identity-reveal"
+import { useConnections } from "./hooks/use-connections"
 import { useMediaStream } from "./hooks/use-media-stream"
 import { useWebRTCCall } from "./hooks/use-webrtc-call"
 import { useChatMessages } from "./hooks/use-chat-messages"
@@ -61,15 +62,12 @@ export function useChatSession(sessionId: string, session: Session | null) {
   // 5. Typing indicator listeners and cleanup
   const { isTyping } = useTypingIndicator({ sessionId })
 
-  // 6. Identity reveal and connection request actions
+  // 6. Connection request actions
   const {
-    hasRevealedIdentity,
-    partnerRevealedIdentity,
     connectionStatus,
-    handleRevealIdentity,
     handleSendConnectionRequest,
     handleAcceptConnectionRequest,
-  } = useIdentityReveal({
+  } = useConnections({
     sessionId,
     session,
   })
@@ -118,6 +116,10 @@ export function useChatSession(sessionId: string, session: Session | null) {
     }
   }, [sessionId, resetPartnerState])
 
+  const conversationStatus = useMessagesStore((state) => 
+    state.conversations?.find((c) => c.id === sessionId)?.status || "ACTIVE"
+  )
+
   return {
     userId,
     peerNickname,
@@ -126,8 +128,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
     isStrangerDisconnected,
     setIsStrangerDisconnected,
     isTyping,
-    hasRevealedIdentity,
-    partnerRevealedIdentity,
     connectionStatus,
     isWsReady,
     inputText,
@@ -139,7 +139,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
     expandedMsgs,
     toggleExpand,
     handleReact,
-    handleRevealIdentity,
     handleSendConnectionRequest,
     handleAcceptConnectionRequest,
     handleInputChange,
@@ -147,6 +146,7 @@ export function useChatSession(sessionId: string, session: Session | null) {
     messages,
     isEngaged,
     lastUserMsgId,
+    conversationStatus,
     // Calling features
     callState,
     callType,

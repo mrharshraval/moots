@@ -3,7 +3,7 @@ import { NotFoundError, ForbiddenError } from "../../../shared/errors/AppError.j
 import { EventBus } from "../../../shared/events/event-bus.js";
 import { ConversationStatus } from "@prisma/client";
 import { prisma } from "../../../database/index.js";
-import { UpdateConversationSettingsInput, DeleteConversationInput } from "../dto/conversations.dto.js";
+import { UpdateConversationSettingsInput } from "../dto/conversations.dto.js";
 
 export class ConversationsService {
   private repository: ConversationsRepository;
@@ -13,24 +13,12 @@ export class ConversationsService {
   }
 
   async createConversation(id: string, policyId: string, actorId1: string, actorId2: string, metadata?: any) {
-    const actor1Meta = metadata?.actor1 || {};
-    const actor2Meta = metadata?.actor2 || {};
-
-    return this.repository.createConversation({
+    return this.repository.createMatchConversation({
       id,
       policyId,
-      type: "DIRECT",
-      status: "ACTIVE",
-      participants: [
-        { 
-          actorId: actorId1, 
-          persona: actor1Meta.nickname ? { displayName: actor1Meta.nickname, avatarSeed: actorId1 } : undefined 
-        }, 
-        { 
-          actorId: actorId2, 
-          persona: actor2Meta.nickname ? { displayName: actor2Meta.nickname, avatarSeed: actorId2 } : undefined 
-        }
-      ]
+      actorId1,
+      actorId2,
+      metadata
     });
   }
 
@@ -40,6 +28,7 @@ export class ConversationsService {
     return this.repository.createConversation({
       id: undefined, // Prisma will generate CUID
       policyId: undefined, // Group conversations don't strictly need a matchmaking policy
+      kind: "GROUP",
       type: "GROUP",
       status: "ACTIVE",
       name,
@@ -63,9 +52,11 @@ export class ConversationsService {
         isPinned: currentUserParticipant?.isPinned || false,
         isArchived: currentUserParticipant?.isArchived || false,
         isMuted: currentUserParticipant?.isMuted || false,
+        hiddenAt: currentUserParticipant?.hiddenAt || null,
+        leftAt: currentUserParticipant?.leftAt || null,
         unreadCount: currentUserParticipant?.unreadCount || 0,
         participants: conv.participants.map((p: any) => {
-          if (p.identityState === 'ANONYMOUS' && p.persona) {
+          if (p.persona) {
             return {
               id: p.actorId,
               name: p.persona.displayName,
@@ -98,42 +89,51 @@ export class ConversationsService {
     return this.repository.updateParticipantSettings(actorId, conversationId, updateData);
   }
 
-  async deleteOrClearConversation(conversationId: string, data: DeleteConversationInput["body"] & { actorId: string }) {
-    const { actorId, clearOnly } = data;
-
+  async endConversation(conversationId: string, actorId: string) {
     const conversation = await this.repository.getConversationWithParticipants(conversationId);
     if (!conversation) {
       throw new NotFoundError("Not found");
     }
 
-    const isParticipant = conversation.participants.some((p: any) => p.actorId === actorId);
-    if (!isParticipant) {
+    const participant = conversation.participants.find((p: any) => p.actorId === actorId);
+    if (!participant) {
       throw new NotFoundError("Not found or no permission to access this conversation");
     }
 
-    if (clearOnly) {
-      await this.repository.deleteMessages(conversationId);
-      return { message: "Chat cleared" };
+    if (conversation.status === ConversationStatus.ENDED) {
+      return { message: "Conversation already ended" };
     }
 
-    const isAnyGuest = conversation.participants.some((p: any) => p.actor?.type === 'GUEST');
-    const actorIds = conversation.participants.map((p: any) => p.actorId);
-    const a1 = actorIds[0] || "";
-    const a2 = actorIds[1] || "";
-
-    const isFriends = await this.repository.findConnection(a1, a2);
-
     return prisma.$transaction(async (tx) => {
-      if (isAnyGuest) {
-        await this.repository.deleteConversation(conversationId, tx);
-        return { message: "Conversation deleted for guest" };
+      const endedAt = new Date();
+      const expiresAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: { 
+          status: ConversationStatus.ENDED,
+          endedAt,
+          expiresAt,
+          endedByActorId: actorId
+        }
+      });
+
+      // Clear activeMatchConversationId from participants
+      for (const p of conversation.participants) {
+        await tx.actor.update({
+          where: { id: p.actorId },
+          data: { activeMatchConversationId: null }
+        });
       }
 
-      if (!isFriends) {
-        await this.repository.deleteMessages(conversationId, tx);
-      }
-      
-      await this.repository.updateConversationStatus(conversationId, ConversationStatus.DELETED, tx);
+      await EventBus.publish(tx, "conversation.ended", conversationId, "Conversation", {
+        conversationId,
+        endedAt: endedAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        endedByActorId: actorId,
+        broadcastRule: "TO_CONVERSATION"
+      });
+
       return { message: "Conversation ended" };
     });
   }
@@ -262,7 +262,8 @@ export class ConversationsService {
 
       await EventBus.publish(tx, "participant.left", conversationId, "Conversation", {
         conversationId,
-        actorId
+        actorId,
+        broadcastRule: "TO_CONVERSATION"
       });
 
       return { message: "Left conversation" };
@@ -297,6 +298,51 @@ export class ConversationsService {
       });
 
       return { message: "Role updated" };
+    });
+  }
+
+  async hideConversation(conversationId: string, actorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const participant = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      if (!participant) {
+        throw new NotFoundError("Participant not found");
+      }
+
+      const now = new Date();
+      await tx.participant.update({
+        where: { id: participant.id },
+        data: { hiddenAt: now, historyClearedAt: now }
+      });
+
+      await EventBus.publish(tx, "conversation.hidden", conversationId, "Conversation", {
+        conversationId,
+        actorId,
+        hiddenAt: now.toISOString(),
+        historyClearedAt: now.toISOString(),
+        broadcastRule: "TO_SELF"
+      });
+
+      return { message: "Conversation hidden and history cleared", hiddenAt: now };
+    });
+  }
+
+  async unhideConversation(conversationId: string, actorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const participant = await tx.participant.findUnique({
+        where: { actorId_conversationId: { actorId, conversationId } }
+      });
+      if (!participant) {
+        throw new NotFoundError("Participant not found");
+      }
+
+      await tx.participant.update({
+        where: { id: participant.id },
+        data: { hiddenAt: null }
+      });
+
+      return { message: "Conversation unhidden", hiddenAt: null };
     });
   }
 }

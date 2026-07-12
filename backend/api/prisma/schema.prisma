@@ -1,7 +1,6 @@
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
-
 
 generator client {
   provider = "prisma-client-js"
@@ -10,14 +9,6 @@ generator client {
 // =========================================================
 // ENUMS
 // =========================================================
-
-enum IdentityState {
-  ANONYMOUS
-  PENDING_REVEAL
-  REVEALED
-  VERIFIED
-  ORGANIZATION
-}
 
 enum ConnectionStatus {
   PENDING
@@ -31,11 +22,31 @@ enum ConversationStatus {
   ACTIVE
   ARCHIVED
   DELETED
+  ENDED
+  CLOSED
+}
+
+enum ConversationKind {
+  MATCH
+  FRIEND
+  GROUP
 }
 
 enum ConversationType {
   DIRECT
   GROUP
+}
+
+enum GroupRequestType {
+  INVITATION
+  JOIN_REQUEST
+}
+
+enum GroupRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
 }
 
 enum ActorType {
@@ -205,6 +216,9 @@ model Actor {
   type           ActorType
   userId         String?
   guestSessionId String?
+  
+  activeMatchConversationId String? @unique
+  activeMatchConversation   Conversation? @relation(name: "ActiveMatch", fields: [activeMatchConversationId], references: [id], onDelete: SetNull)
 
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestSession GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
@@ -258,6 +272,10 @@ model Connection {
   actor1Id  String
   actor2Id  String
   status    ConnectionStatus @default(PENDING)
+  
+  originMatchConversationId String?
+  respondedAt               DateTime?
+  
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -274,12 +292,17 @@ model Connection {
 // =========================================================
 
 model Conversation {
-  id                 String             @id @default(cuid())
-  type               ConversationType   @default(DIRECT)
-  policyId           String             @default("policy_anon_stranger_v1")
-  name               String?
-  avatarUrl          String?
-  status             ConversationStatus @default(ACTIVE)
+  id             String             @id @default(cuid())
+  kind           ConversationKind
+  type           ConversationType   @default(DIRECT)
+  policyId       String             @default("policy_anon_stranger_v1")
+  name           String?
+  avatarUrl      String?
+  status         ConversationStatus @default(ACTIVE)
+  endedAt        DateTime?
+  expiresAt      DateTime?
+  retentionLock  Boolean            @default(false)
+  endedByActorId String?
 
   lastMessageId      String?  @unique
   lastMessagePreview String?
@@ -291,11 +314,13 @@ model Conversation {
   messages     Message[]     @relation("ConversationMessages")
   invites      GroupInvite[]
   calls        Call[]
+  activeMatchActors Actor[] @relation("ActiveMatch")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([lastActivityAt])
+  @@index([status, expiresAt])
 }
 
 model Participant {
@@ -304,18 +329,18 @@ model Participant {
   conversationId String
   joinedAt       DateTime  @default(now())
   leftAt         DateTime?
+  hiddenAt       DateTime?
 
   role ParticipantRole @default(MEMBER)
 
   // User-specific conversation settings
-  identityState     IdentityState @default(ANONYMOUS)
-  persona           Persona?
-  revealInitiatedAt DateTime?
-  revealConfirmedAt DateTime?
+  persona Persona?
 
-  isFavorited Boolean   @default(false)
-  isPinned    Boolean   @default(false)
-  isArchived  Boolean   @default(false)
+  isPinned          Boolean   @default(false)
+  archivedAt        DateTime?
+  favoritedAt       DateTime?
+  historyClearedAt  DateTime?
+
   isMuted     Boolean   @default(false)
   mutedUntil  DateTime? // null + isMuted = muted indefinitely
   unreadCount Int       @default(0)
@@ -471,6 +496,18 @@ model GroupInvite {
   @@index([conversationId])
 }
 
+model GroupRequest {
+  id             String             @id @default(cuid())
+  conversationId String
+  type           GroupRequestType
+  status         GroupRequestStatus @default(PENDING)
+  initiatedById  String
+  targetActorId  String
+  respondedAt    DateTime?
+  
+  @@unique([conversationId, targetActorId, type, status])
+}
+
 // =========================================================
 // CALLS
 // =========================================================
@@ -571,26 +608,25 @@ model Policy {
 // =========================================================
 
 model Notification {
-  id        String           @id @default(cuid())
-  actorId   String
-  type      NotificationType
-  
+  id      String           @id @default(cuid())
+  actorId String
+  type    NotificationType
+
   // Optional reference to the underlying entity
-  entityId       String?
-  
+  entityId String?
+
   // Unique key to prevent duplicate notifications for the same event
   idempotencyKey String?
-  
+
   // Flexible payload for rendering details (e.g. senderName, messagePreview)
-  payload        Json             
-  
-  isRead         Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-  
-  actor          Actor            @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  
+  payload Json
+
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
   @@unique([actorId, idempotencyKey])
   @@index([actorId, isRead])
   @@index([createdAt])
 }
-

@@ -8,6 +8,7 @@ export interface Participant {
 
 export interface Conversation {
   id: string;
+  kind: string;
   type: string;
   name: string | null;
   isPinned: boolean;
@@ -20,4 +21,5 @@ export interface Conversation {
   status: string;
   lastActivityAt: string;
   updatedAt: string;
+  expiresAt: string | null;
 }

@@ -83,6 +83,26 @@ export async function processCommands() {
       cmd = await client.rpop("moots:command:connection_remove");
     }
 
+    // 7.1 connection_reject
+    cmd = await client.rpop("moots:command:connection_reject");
+    while (cmd) {
+      processedCount++;
+      const { actorId, id } = JSON.parse(cmd);
+      const connectionsService = resolve("connectionsService");
+      await connectionsService.rejectConnection(actorId, id);
+      cmd = await client.rpop("moots:command:connection_reject");
+    }
+
+    // 7.2 connection_cancel
+    cmd = await client.rpop("moots:command:connection_cancel");
+    while (cmd) {
+      processedCount++;
+      const { actorId, id } = JSON.parse(cmd);
+      const connectionsService = resolve("connectionsService");
+      await connectionsService.cancelConnection(actorId, id);
+      cmd = await client.rpop("moots:command:connection_cancel");
+    }
+
     // 8. identity_reveal
     cmd = await client.rpop("moots:command:identity_reveal");
     while (cmd) {
@@ -90,10 +110,9 @@ export async function processCommands() {
       const { id, actorId } = JSON.parse(cmd);
       const { prisma } = await import("../../database/index.js");
       await prisma.$transaction(async (tx) => {
-        await tx.participant.update({
-          where: { actorId_conversationId: { actorId, conversationId: id } },
-          data: { identityState: "REVEALED" }
-        });
+        // identityState has been removed, identity reveal is no longer supported in the old way
+        // This is a no-op now, but we'll leave the event creation if needed, or just skip it.
+        // Let's just create the event so the queue clears properly.
         await tx.domainEvent.create({
           data: {
             eventType: "identity.reveal_confirmed",

@@ -31,6 +31,7 @@ export interface Message {
 
 export interface Conversation {
   id: string
+  kind: string
   type: string
   name: string | null
   isPinned: boolean
@@ -43,13 +44,18 @@ export interface Conversation {
   status: string
   lastActivityAt: string
   updatedAt: string
+  hiddenAt: string | null
+  leftAt: string | null
+  endedAt: string | null
+  expiresAt: string | null
+  endedByActorId: string | null
 }
 
 interface MessagesState {
   conversations: Conversation[]
   isLoading: boolean
   error: string | null
-  filter: "all" | "archived" | "requests"
+  filter: "all" | "archived" | "requests" | "history"
   searchQuery: string
   selectedChatId: string | null
   
@@ -57,8 +63,9 @@ interface MessagesState {
   hasMore: boolean
   
   messagesByChatId: Record<string, Message[]>
+  deletedChatIds: string[]
   
-  setFilter: (filter: "all" | "archived" | "requests") => void
+  setFilter: (filter: "all" | "archived" | "requests" | "history") => void
   setSearchQuery: (query: string) => void
   setSelectedChatId: (id: string | null) => void
   setConversations: (conversations: Conversation[], nextCursor: string | null, hasMore: boolean) => void
@@ -84,6 +91,8 @@ export const useMessagesStore = create<MessagesState>((set) => ({
   hasMore: true,
 
   messagesByChatId: {},
+  deletedChatIds: [],
+
 
   setFilter: (filter) => set({ filter }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),

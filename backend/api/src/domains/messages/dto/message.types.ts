@@ -1,4 +1,4 @@
-import { ContentType, IdentityState } from "@prisma/client";
+import { ContentType } from "@prisma/client";
 
 export interface Message {
   id:                  string;

@@ -15,6 +15,7 @@ async function validateStartup() {
   }
 }
 import { startGuestCleanupJob } from "./jobs/guest-cleanup.job.js";
+import { startConversationRetentionJob } from "./jobs/conversation-retention.job.js";
 import { startOutboxWorker } from "./workers/outbox.worker.js";
 import { startCommandWorker } from "./workers/command.worker.js";
 
@@ -26,6 +27,7 @@ validateStartup().then(async () => {
   logger.info("Policies seeded successfully.");
 
   startGuestCleanupJob();
+  startConversationRetentionJob();
   startOutboxWorker();
   startCommandWorker();
   app.listen(PORT, () => {

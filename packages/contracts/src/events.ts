@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export enum BroadcastRule {
+  TO_SELF = "TO_SELF",
+  TO_CONVERSATION = "TO_CONVERSATION",
+  TO_USER = "TO_USER",
+  TO_ALL_USER_DEVICES = "TO_ALL_USER_DEVICES",
+}
+
 export interface PlatformEvent<T> {
   eventId: string;
   eventType: string;
@@ -73,9 +80,19 @@ export const ConnectionRemovedEventSchema = z.object({
   actorId2: z.string(),
 });
 
-export const IdentityRevealConfirmedEventSchema = z.object({
+
+export const ConversationHiddenEventSchema = z.object({
   conversationId: z.string(),
   actorId: z.string(),
+  hiddenAt: z.string(),
+  broadcastRule: z.nativeEnum(BroadcastRule).optional(),
+});
+
+export const ConversationEndedEventSchema = z.object({
+  conversationId: z.string(),
+  endedAt: z.string(),
+  endedByActorId: z.string().optional(),
+  broadcastRule: z.nativeEnum(BroadcastRule).optional(),
 });
 
 export const ParticipantJoinedEventSchema = z.object({
@@ -88,6 +105,7 @@ export const ParticipantLeftEventSchema = z.object({
   conversationId: z.string(),
   actorId: z.string(),
   kickedBy: z.string().optional(),
+  broadcastRule: z.nativeEnum(BroadcastRule).optional(),
 });
 
 export const ParticipantRoleUpdatedEventSchema = z.object({
@@ -136,6 +154,18 @@ export const NotificationCreatedEventSchema = z.object({
   createdAt: z.string(),
 });
 
+export const ConnectionRejectedEventSchema = z.object({
+  connectionId: z.string(),
+  actorId1: z.string(),
+  actorId2: z.string(),
+});
+
+export const ConnectionCancelledEventSchema = z.object({
+  connectionId: z.string(),
+  actorId1: z.string(),
+  actorId2: z.string(),
+});
+
 export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("notification.created"), payload: NotificationCreatedEventSchema }),
   z.object({ eventType: z.literal("conversation.provisioned"), payload: ConversationProvisionedEventSchema }),
@@ -147,7 +177,8 @@ export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("connection.requested"), payload: ConnectionRequestedEventSchema }),
   z.object({ eventType: z.literal("connection.accepted"), payload: ConnectionAcceptedEventSchema }),
   z.object({ eventType: z.literal("connection.removed"), payload: ConnectionRemovedEventSchema }),
-  z.object({ eventType: z.literal("identity.reveal_confirmed"), payload: IdentityRevealConfirmedEventSchema }),
+  z.object({ eventType: z.literal("connection.rejected"), payload: ConnectionRejectedEventSchema }),
+  z.object({ eventType: z.literal("connection.cancelled"), payload: ConnectionCancelledEventSchema }),
   z.object({ eventType: z.literal("participant.joined"), payload: ParticipantJoinedEventSchema }),
   z.object({ eventType: z.literal("participant.left"), payload: ParticipantLeftEventSchema }),
   z.object({ eventType: z.literal("participant.role_updated"), payload: ParticipantRoleUpdatedEventSchema }),
@@ -156,6 +187,8 @@ export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("call.declined"), payload: CallDeclinedEventSchema }),
   z.object({ eventType: z.literal("call.missed"), payload: CallMissedEventSchema }),
   z.object({ eventType: z.literal("call.ended"), payload: CallEndedEventSchema }),
+  z.object({ eventType: z.literal("conversation.hidden"), payload: ConversationHiddenEventSchema }),
+  z.object({ eventType: z.literal("conversation.ended"), payload: ConversationEndedEventSchema }),
 ]);
 
 export type DomainEvent = z.infer<typeof DomainEventSchema>;
@@ -172,8 +205,8 @@ export type WSInboundEventType =
   | "connection:request"
   | "connection:accepted"
   | "connection:removed"
-  | "participant:identity-revealed"
-  | "participant:identity-hidden"
+  | "connection:reject"
+  | "connection:cancel"
   | "webrtc:offer"
   | "webrtc:answer"
   | "webrtc:ice-candidate";
@@ -192,8 +225,8 @@ export type WSOutboundEventType =
   | "connection:request"
   | "connection:accepted"
   | "connection:removed"
-  | "participant:identity-revealed"
-  | "participant:identity-hidden"
+  | "connection:rejected"
+  | "connection:cancelled"
   | "partner-disconnected"
   | "notification-received"
   | "error"
@@ -201,6 +234,8 @@ export type WSOutboundEventType =
   | "call:accepted"
   | "call:declined"
   | "call:ended"
+  | "conversation:ended"
+  | "conversation:hidden"
   | "webrtc:offer"
   | "webrtc:answer"
   | "webrtc:ice-candidate";

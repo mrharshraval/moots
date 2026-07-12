@@ -294,24 +294,42 @@ export async function handleParsedMessage(
         break;
       }
 
-      case "participant:identity-revealed": {
+      case "connection:reject": {
         if (!actorId) return;
         const { sessionId } = payload;
-        redis.lpush("moots:command:identity_reveal", JSON.stringify({
-          id: sessionId,
-          actorId,
-        })).catch((err: any) => {
-          structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
-        });
+        const session = sessionService.getSession(sessionId);
+        if (!session) return;
+
+        const partnerId = session.users.find((id) => id !== actorId);
+        if (partnerId) {
+          redis.lpush("moots:command:connection_reject", JSON.stringify({
+            actorId,
+            id: partnerId,
+          })).catch((err: any) => {
+            structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+          });
+        }
         break;
       }
 
-      case "participant:identity-hidden": {
+      case "connection:cancel": {
         if (!actorId) return;
         const { sessionId } = payload;
-        sessionService.broadcast(sessionId, { type, payload }, registry, [actorId]);
+        const session = sessionService.getSession(sessionId);
+        if (!session) return;
+
+        const partnerId = session.users.find((id) => id !== actorId);
+        if (partnerId) {
+          redis.lpush("moots:command:connection_cancel", JSON.stringify({
+            actorId,
+            id: partnerId,
+          })).catch((err: any) => {
+            structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
+          });
+        }
         break;
       }
+
 
       case "webrtc:offer":
       case "webrtc:answer":

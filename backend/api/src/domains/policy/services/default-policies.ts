@@ -7,11 +7,6 @@ export const POLICIES: Record<string, ConversationPolicy> = {
     id: 'policy_anon_stranger_v1',
     name: 'anonymous_stranger',
     version: 1,
-    identityPolicy: {
-      defaultState:    'ANONYMOUS',
-      revealMechanism: 'MUTUAL_CONSENT',
-      revealExpiry:    86400,  // 24h to respond
-    },
     retentionPolicy: {
       type:          'PERSISTENT',
       ttlSeconds:    null,
@@ -32,11 +27,6 @@ export const POLICIES: Record<string, ConversationPolicy> = {
     id: 'policy_icebreaker_v1',
     name: 'icebreaker',
     version: 1,
-    identityPolicy: {
-      defaultState:    'ANONYMOUS',
-      revealMechanism: 'DISABLED',  // cannot reveal
-      revealExpiry:    null,
-    },
     retentionPolicy: {
       type:          'EPHEMERAL',
       ttlSeconds:    3600,  // 1h, then gone
@@ -51,11 +41,6 @@ export const POLICIES: Record<string, ConversationPolicy> = {
     id: 'policy_identified_dm_v1',
     name: 'identified_dm',
     version: 1,
-    identityPolicy: {
-      defaultState:    'REVEALED',
-      revealMechanism: 'UNILATERAL',
-      revealExpiry:    null,
-    },
     retentionPolicy: {
       type:          'PERSISTENT',
       ttlSeconds:    null,
@@ -77,11 +62,6 @@ export const POLICIES: Record<string, ConversationPolicy> = {
     id: 'policy_guest_dm_v1',
     name: 'guest_dm',
     version: 1,
-    identityPolicy: {
-      defaultState:    'ANONYMOUS',
-      revealMechanism: 'DISABLED',
-      revealExpiry:    null,
-    },
     retentionPolicy: {
       type:          'EPHEMERAL',
       ttlSeconds:    86400, // 24 hours

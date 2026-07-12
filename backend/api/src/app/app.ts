@@ -15,7 +15,7 @@ import { authRouter } from "../domains/auth/index.js";
 import { usersRouter } from "../domains/users/index.js";
 import { conversationsRouter } from "../domains/conversations/index.js";
 import { internalConversationsRouter } from "../domains/conversations/routes/conversations.internal.js";
-import { connectionsRouter } from "../domains/connections/index.js";
+import { connectionsRouter } from "../domains/connections/routes/connections.routes.js";
 import { internalConnectionsRouter } from "../domains/connections/routes/connections.internal.js";
 import { messagesRouter } from "../domains/messages/routes/messages.routes.js";
 import { internalMessagesRouter } from "../domains/messages/routes/messages.internal.js";

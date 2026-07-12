@@ -9,3 +9,8 @@ const controller = new ConnectionsController();
 
 connectionsRouter.post("/request", authenticate, validateRequest(RequestConnectionSchema), controller.requestConnection);
 connectionsRouter.post("/accept",  authenticate, validateRequest(AcceptConnectionSchema),  controller.acceptConnection);
+
+connectionsRouter.get("/", authenticate, controller.getConnections);
+connectionsRouter.get("/pending", authenticate, controller.getPendingRequests);
+connectionsRouter.post("/:id/reject", authenticate, controller.rejectConnection);
+connectionsRouter.post("/:id/cancel", authenticate, controller.cancelConnection);

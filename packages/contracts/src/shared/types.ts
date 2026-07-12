@@ -2,7 +2,6 @@ export type ActorType = "USER" | "GUEST" | "BOT" | "SUPPORT" | "AI";
 export type ConnectionStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "BLOCKED" | "REMOVED";
 export type ConversationStatus = "ACTIVE" | "ARCHIVED" | "DELETED";
 export type ConversationType = "DIRECT" | "GROUP";
-export type IdentityState = "ANONYMOUS" | "PENDING_REVEAL" | "REVEALED" | "VERIFIED" | "ORGANIZATION";
 export type ParticipantRole = "OWNER" | "ADMIN" | "MEMBER";
 export type ContentType = "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "FILE";
 export type AttachmentType = "IMAGE" | "VIDEO" | "AUDIO" | "FILE";
@@ -30,7 +29,6 @@ export interface ParticipantDto {
   actorId: string;
   conversationId: string;
   role: ParticipantRole;
-  identityState: IdentityState;
   persona: {
     displayName: string;
     avatarSeed: string;

@@ -5,4 +5,3 @@ import { requireInternalKey } from "../../../shared/middlewares/internal.middlew
 export const internalConversationsRouter = Router();
 const getController = () => resolve("conversationsController");
 
-internalConversationsRouter.post("/:id/reveal", requireInternalKey, (req, res, next) => getController().revealIdentityInternal(req, res, next));

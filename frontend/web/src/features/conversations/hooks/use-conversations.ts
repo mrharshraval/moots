@@ -15,8 +15,17 @@ export function useConversations() {
   const observerRef = React.useRef<IntersectionObserver | null>(null)
   const loadMoreRef = React.useRef<HTMLDivElement>(null)
 
+  const [now, setNow] = React.useState(Date.now())
+
   React.useEffect(() => {
     ConversationRepository.fetchConversations().catch(console.error)
+    
+    // Timer to re-evaluate expiresAt periodically
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 60000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   React.useEffect(() => {
@@ -43,12 +52,18 @@ export function useConversations() {
   const filteredConversations = React.useMemo(() => {
     let filtered = conversations || []
     
+    // Filter out hidden and left conversations
+    filtered = filtered.filter(c => !c.hiddenAt && !c.leftAt)
+    
     if (filter === "archived") {
       filtered = filtered.filter(c => c.isArchived)
     } else if (filter === "requests") {
       filtered = []
+    } else if (filter === "history") {
+      filtered = filtered.filter(c => c.kind === "MATCH" && c.status === "ENDED" && (!c.expiresAt || new Date(c.expiresAt).getTime() > Date.now()))
     } else {
-      filtered = filtered.filter(c => !c.isArchived)
+      // "all" tab
+      filtered = filtered.filter(c => c.kind !== "MATCH" && !c.isArchived && c.status !== "ENDED")
     }
 
     if (searchQuery.trim()) {
@@ -68,7 +83,7 @@ export function useConversations() {
       const timeB = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0
       return timeB - timeA
     })
-  }, [conversations, filter, searchQuery])
+  }, [conversations, filter, searchQuery, now])
 
   return {
     filter,
@@ -80,6 +95,7 @@ export function useConversations() {
     loadMoreRef,
     hasMore,
     updateSettings: ConversationRepository.updateConversationSettings,
-    deleteConversation: ConversationRepository.deleteConversation
+    endConversation: ConversationRepository.endConversation,
+    hideConversation: ConversationRepository.hideConversation
   }
 }

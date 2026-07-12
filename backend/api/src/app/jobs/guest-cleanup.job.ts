@@ -1,4 +1,4 @@
-﻿import { prisma } from "../../database/index.js";
+import { prisma } from "../../database/index.js";
 import { logger } from "../../shared/logger.js";
 
 // Run cleanup every hour
@@ -9,15 +9,27 @@ export function startGuestCleanupJob() {
     try {
       const now = new Date();
       
-      const { count } = await prisma.guestSession.deleteMany({
-        where: {
-          expiresAt: {
-            lt: now
-          }
-        }
+      const expiredSessions = await prisma.guestSession.findMany({
+        where: { expiresAt: { lt: now } },
+        select: { id: true, actors: { select: { id: true } } }
       });
-      
-      if (count > 0) {
+
+      if (expiredSessions.length > 0) {
+        const actorIds = expiredSessions.flatMap(s => s.actors.map(a => a.id));
+
+        // 1. Manually delete Participants to satisfy Actor -> Participant restrict constraint
+        if (actorIds.length > 0) {
+          await prisma.participant.deleteMany({
+            where: { actorId: { in: actorIds } }
+          });
+        }
+
+        // 2. Safely delete GuestSessions (which cascades to Actor)
+        const sessionIds = expiredSessions.map(s => s.id);
+        const { count } = await prisma.guestSession.deleteMany({
+          where: { id: { in: sessionIds } }
+        });
+
         logger.info({ count }, "Guest cleanup job removed expired sessions");
       }
     } catch (error) {
