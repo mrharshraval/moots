@@ -52,18 +52,33 @@ export function useConversations() {
   const filteredConversations = React.useMemo(() => {
     let filtered = conversations || []
     
-    // Filter out hidden and left conversations
-    filtered = filtered.filter(c => !c.hiddenAt && !c.leftAt)
-    
+    // Always exclude conversations the user has left
+    filtered = filtered.filter(c => !c.leftAt)
+
     if (filter === "archived") {
+      // Archived: archivedAt is set (represented as isArchived boolean from API)
       filtered = filtered.filter(c => c.isArchived)
+    } else if (filter === "favorites") {
+      // Favorites: favoritedAt is set (represented as isFavorited boolean from API)
+      filtered = filtered.filter(c => c.isFavorited)
     } else if (filter === "requests") {
+      // Requests are derived from the connections/group-requests APIs, not conversations
       filtered = []
     } else if (filter === "history") {
-      filtered = filtered.filter(c => c.kind === "MATCH" && c.status === "ENDED" && (!c.expiresAt || new Date(c.expiresAt).getTime() > Date.now()))
+      // History: MATCH conversations that have ENDED and haven't expired yet
+      filtered = filtered.filter(c =>
+        c.kind === "MATCH" &&
+        c.status === "ENDED" &&
+        (!c.expiresAt || new Date(c.expiresAt).getTime() > now)
+      )
     } else {
-      // "all" tab
-      filtered = filtered.filter(c => c.kind !== "MATCH" && !c.isArchived && c.status !== "ENDED")
+      // "all" tab spec: FRIEND/GROUP always visible + MATCH only if ACTIVE
+      // Hidden (hiddenAt) and archived conversations are excluded
+      filtered = filtered.filter(c =>
+        !c.hiddenAt &&
+        !c.isArchived &&
+        (c.kind === "MATCH" ? c.status === "ACTIVE" : true)
+      )
     }
 
     if (searchQuery.trim()) {

@@ -217,7 +217,7 @@ model Actor {
   userId         String?
   guestSessionId String?
   
-  activeMatchConversationId String? @unique
+  activeMatchConversationId String?
   activeMatchConversation   Conversation? @relation(name: "ActiveMatch", fields: [activeMatchConversationId], references: [id], onDelete: SetNull)
 
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -242,6 +242,7 @@ model Actor {
 
   @@index([userId])
   @@index([guestSessionId])
+  @@index([activeMatchConversationId])
 }
 
 model Device {

@@ -3,17 +3,18 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "@/providers/auth-provider"
-import { ArrowDown } from "lucide-react"
 
 import { Button } from "@/shared/ui/button"
 import { useChatSession } from "@/features/chat/application/use-chat-session"
 import { MessageList } from "@/features/chat/presentation/components/message-list"
-import { ChatInput } from "@/features/chat/presentation/components/chat-input"
+import { MessageComposer } from "@/features/chat/presentation/components/composer"
 import { ActionBar } from "@/features/chat/presentation/components/action-bar"
 import { SessionDisconnected } from "@/features/chat/presentation/components/session-disconnected"
 import { TouchContextSheet } from "@/features/chat/presentation/components/touch-context-sheet"
 import { useMatchmakingFlow } from "@/features/matchmaking"
 import { useMatchmakingStore } from "@/features/matchmaking/presentation/store/matchmaking-store"
+import { useMessagesStore } from "@/features/chat/presentation/store/messages-store"
+import { ConversationRepository } from "@/features/conversations/repositories/conversation.repository"
 import { CallOverlay } from "./call-overlay"
 
 export interface ChatSessionProps {
@@ -62,7 +63,8 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     endCall,
     toggleMute,
     toggleCamera,
-    conversationStatus
+    conversationStatus,
+    endedByActorId
   } = useChatSession(sessionId, session)
 
   const { startMatchmaking: startLocalMatching, cancelMatchmaking: cancelLocalMatching } = useMatchmakingFlow()
@@ -71,11 +73,20 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
 
   // Page state computation
   const pageState = React.useMemo(() => {
-    if (isStrangerDisconnected) return "disconnected"
+    if (isStrangerDisconnected || conversationStatus === "ENDED") return "disconnected"
     // Only return matching state for brand new matches that are still connecting.
     // Existing chats should instantly be "active" to prevent layout shifts.
     return (isWsReady || !isNewMatch) ? "active" : "matching"
-  }, [isWsReady, isStrangerDisconnected, isNewMatch])
+  }, [isWsReady, isStrangerDisconnected, isNewMatch, conversationStatus])
+
+  const disconnectScenario = React.useMemo(() => {
+    const hasMessages = messages.length > 0
+    if (endedByActorId === userId) {
+      return hasMessages ? "you_ended" : "you_left_early"
+    } else {
+      return hasMessages ? "other_ended_engaged" : "other_left_early"
+    }
+  }, [endedByActorId, userId, messages.length])
 
   // Scroll details
   const [showScrollBtn, setShowScrollBtn] = React.useState(false)
@@ -131,12 +142,44 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
     }
   }
 
+  const handleSkip = React.useCallback(async () => {
+    try {
+      if (conversationStatus !== "ENDED") {
+        // Optimistically show the end screen
+        useMessagesStore.getState().updateConversation(sessionId, { status: "ENDED" })
+        await ConversationRepository.endConversation(sessionId)
+      } else {
+        // If they press skip and it's already ended, take them back to the pool
+        useMatchmakingStore.getState().setStatus("idle")
+        router.push("/chat")
+      }
+    } catch (err) {
+      console.error("Failed to skip conversation", err)
+      useMatchmakingStore.getState().setStatus("idle")
+      router.push("/chat")
+    }
+  }, [sessionId, conversationStatus, router])
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend(textareaRef)
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      handleSkip()
     }
   }
+
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if they are typing in an input (except our own textarea which we handle above)
+      if (e.key === "Escape" && e.target instanceof Element && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+        handleSkip()
+      }
+    }
+    window.addEventListener("keydown", handleGlobalKeyDown)
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown)
+  }, [handleSkip])
 
   return (
     <div className="flex flex-col h-full bg-background relative">
@@ -173,8 +216,8 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
         </div>
       )}
 
-      {/* Main Chat Layout (Active or Matching or Engaged Disconnected) */}
-      {(pageState === "active" || pageState === "matching" || (pageState === "disconnected" && isEngaged)) ? (
+      {/* Main Chat Layout (Active or Matching) */}
+      {(pageState === "active" || pageState === "matching") ? (
         <div className="flex flex-col flex-1 overflow-hidden relative">
           {/* Action Bar */}
           {(pageState === "active" || pageState === "matching") && conversationStatus !== "ENDED" && (
@@ -206,43 +249,25 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
               isTyping={isTyping}
               pageState={pageState}
             />
-
-            {/* Scenario 2: Engaged Conversation Ended Card */}
-            {pageState === "disconnected" && isEngaged && (
-              <SessionDisconnected 
-                isEngaged={true} 
-                peerDisplayName={peerDisplayName} 
-                onFindMatch={() => startLocalMatching()}
-                onChangeInterests={() => router.push("/chat")}
-              />
-            )}
           </div>
         </div>
       ) : null}
 
-      {/* Scenario 1: No Engagement (Match Left) */}
-      {pageState === "disconnected" && !isEngaged && (
+      {/* Disconnected End Screen */}
+      {pageState === "disconnected" && (
         <SessionDisconnected 
-          isEngaged={false} 
-          peerDisplayName={peerDisplayName} 
-          onFindMatch={() => startLocalMatching()}
-          onChangeInterests={() => router.push("/chat")}
+          scenario={disconnectScenario}
+          onContinue={() => router.push("/chat?startMatching=true&from=end_screen")}
         />
       )}
 
-      {/* Scroll to Bottom Button */}
-      {showScrollBtn && pageState === "active" && (
-        <Button variant="outline" size="icon" onClick={scrollToBottom} className="absolute bottom-28 left-1/2 -translate-x-1/2 size-9 rounded-full shadow-md z-30">
-          <ArrowDown className="size-5" strokeWidth={2} />
-        </Button>
-      )}
+
 
       {/* Chat Input sticky bar */}
-      {(pageState === "active" || pageState === "matching") && conversationStatus !== "ENDED" && (
-        <ChatInput
+      {pageState === "active" && conversationStatus !== "ENDED" && (
+        <MessageComposer
           inputText={inputText}
           handleInputChange={handleInputChange}
-          handleKeyDown={handleKeyDown}
           editingMsg={editingMsg}
           setEditingMsg={setEditingMsg}
           replyingTo={replyingTo}
@@ -252,15 +277,10 @@ export function ChatSession({ sessionId }: ChatSessionProps) {
           isWsReady={isWsReady}
           setInputText={setInputText}
           textareaRef={textareaRef}
+          onSkip={handleSkip}
         />
       )}
       
-      {conversationStatus === "ENDED" && (
-        <div className="p-4 bg-muted/30 text-center text-sm text-muted-foreground border-t border-border/50 select-none">
-          This conversation has ended. You can view the chat history for up to 24 hours.
-        </div>
-      )}
-
       {/* Mobile Touch Context Sheet */}
       {showTouchSheet && activeTouchMessage && (
         <TouchContextSheet

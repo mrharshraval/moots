@@ -8,6 +8,15 @@ export interface User {
   email: string | null
 }
 
+export interface ReplyReference {
+  id: string
+  type: string
+  content: string
+  sender: "user" | "stranger"
+  edited: boolean
+  deleted: boolean
+}
+
 export interface Message {
   id: string
   clientMessageId?: string
@@ -22,11 +31,38 @@ export interface Message {
   seen?: boolean
   edited?: boolean
   reactions?: Record<string, string[]>
-  replyTo?: {
-    id: string
-    sender: "user" | "stranger"
-    content: string
+  reply?: ReplyReference
+}
+
+export function mapSerializedMessage(payload: any, currentUserId: string): Message {
+  const isUser = payload.sender?.data?.actorId === currentUserId;
+
+  let mappedReply: ReplyReference | undefined = undefined;
+  if (payload.reply) {
+    const isReplyUser = payload.reply.sender?.data?.actorId === currentUserId;
+    
+    mappedReply = {
+      id: payload.reply.id,
+      type: payload.reply.type || "TEXT",
+      content: payload.reply.content,
+      sender: isReplyUser ? "user" : "stranger",
+      edited: payload.reply.edited || false,
+      deleted: payload.reply.deleted || false,
+    };
   }
+
+  return {
+    id: payload.id,
+    clientMessageId: payload.clientMessageId,
+    status: payload.status || "DELIVERED",
+    sender: isUser ? "user" : "stranger",
+    content: payload.content,
+    time: payload.time || payload.sentAt || new Date().toISOString(),
+    seen: payload.seen || false,
+    edited: payload.edited || false,
+    reactions: payload.receipts || payload.reactions || {},
+    reply: mappedReply,
+  };
 }
 
 export interface Conversation {
@@ -36,6 +72,7 @@ export interface Conversation {
   name: string | null
   isPinned: boolean
   isArchived: boolean
+  isFavorited: boolean
   isMuted: boolean
   unreadCount: number
   participants: User[]
@@ -55,7 +92,7 @@ interface MessagesState {
   conversations: Conversation[]
   isLoading: boolean
   error: string | null
-  filter: "all" | "archived" | "requests" | "history"
+  filter: "all" | "archived" | "requests" | "history" | "favorites"
   searchQuery: string
   selectedChatId: string | null
   
@@ -65,7 +102,7 @@ interface MessagesState {
   messagesByChatId: Record<string, Message[]>
   deletedChatIds: string[]
   
-  setFilter: (filter: "all" | "archived" | "requests" | "history") => void
+  setFilter: (filter: "all" | "archived" | "requests" | "history" | "favorites") => void
   setSearchQuery: (query: string) => void
   setSelectedChatId: (id: string | null) => void
   setConversations: (conversations: Conversation[], nextCursor: string | null, hasMore: boolean) => void

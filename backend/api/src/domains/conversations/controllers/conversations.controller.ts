@@ -16,7 +16,8 @@ export class ConversationsController {
     const actorId          = req.user!.actorId!;
     const { cursor, limit } = req.query;
 
-    const { conversations, nextCursor } = await this.service.getUserConversations(actorId, cursor, limit);
+    const parsedLimit = limit ? parseInt(limit as unknown as string, 10) : undefined;
+    const { conversations, nextCursor } = await this.service.getUserConversations(actorId, cursor as string | undefined, parsedLimit);
     return sendSuccess(res, { conversations, nextCursor });
   });
 
@@ -102,6 +103,12 @@ export class ConversationsController {
     const { id } = req.params;
     
     const result = await this.service.unhideConversation(id as string, actorId);
+    return sendSuccess(res, result);
+  });
+
+  getSessionMetadata = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await this.service.getSessionMetadata(id as string);
     return sendSuccess(res, result);
   });
 }

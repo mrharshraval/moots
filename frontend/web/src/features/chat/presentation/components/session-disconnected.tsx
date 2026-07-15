@@ -1,59 +1,72 @@
 import * as React from "react"
 import { Button } from "@/shared/ui/button"
 
+export type DisconnectScenario = "you_ended" | "other_ended_engaged" | "other_left_early" | "you_left_early"
+
 export interface SessionDisconnectedProps {
-  isEngaged: boolean
-  peerDisplayName: string
-  onFindMatch: () => void
-  onChangeInterests: () => void
+  scenario: DisconnectScenario
+  onContinue: () => void
 }
 
 export function SessionDisconnected({
-  isEngaged,
-  peerDisplayName,
-  onFindMatch,
-  onChangeInterests
+  scenario,
+  onContinue
 }: SessionDisconnectedProps) {
-  if (isEngaged) {
-    return (
-      <div className="mt-8 border-t border-border/40 pt-8 pb-4 w-full">
-        <div className="flex flex-col items-center text-center gap-4 max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-3 duration-300">
-          <div className="flex flex-col items-center gap-1.5">
-            <h3 className="text-md font-bold tracking-tight text-foreground">Conversation Ended</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-              {peerDisplayName} left.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2.5 w-full mt-2">
-            <Button onClick={onFindMatch} className="w-full text-xs h-9.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 font-medium px-4 cursor-pointer shadow-sm">
-              Find Another Match
-            </Button>
-            <button type="button" onClick={onChangeInterests} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-medium py-1.5 bg-transparent border-0">
-              Change Interests
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  let title = ""
+  let subtitle = ""
+
+  if (scenario === "you_ended") {
+    title = "Conversation ended"
+    subtitle = "Thanks for chatting. This conversation is available in History for the next 24 hours."
+  } else if (scenario === "other_ended_engaged") {
+    title = "Conversation ended"
+    subtitle = "The other person ended the conversation. You can review it in History for the next 24 hours."
+  } else if (scenario === "other_left_early") {
+    title = "Match left"
+    subtitle = "They left before the conversation started."
+  } else if (scenario === "you_left_early") {
+    title = "Match skipped"
+    subtitle = "You skipped this match before the conversation started."
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-background text-foreground max-w-md mx-auto w-full">
-      <div className="flex flex-col items-center text-center gap-5 animate-in fade-in zoom-in-95 duration-300">
-        <div className="flex flex-col items-center gap-1.5">
-          <h2 className="text-lg font-bold tracking-tight text-foreground">Match Left</h2>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            They left before the conversation started.
-          </p>
+    <div className="flex-1 flex flex-col items-center pt-[22vh] pb-8 px-4 bg-background h-full w-full relative z-50">
+      <div className="flex flex-col items-center w-full max-w-[420px] text-center animate-in fade-in duration-300">
+        <div className="mb-[16px] flex justify-center">
+          <img
+            src="/brand/brand-marks/monochrome/Balck%20Filled.svg"
+            alt="Moots"
+            className="h-[72px] w-[72px] opacity-40 dark:hidden object-contain"
+          />
+          <img
+            src="/brand/brand-marks/monochrome/White%20Filled.svg"
+            alt="Moots"
+            className="h-[72px] w-[72px] opacity-40 hidden dark:block object-contain"
+          />
         </div>
-        <div className="flex flex-col gap-2.5 w-full mt-1">
-          <Button onClick={onFindMatch} className="w-full text-xs h-9.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 font-medium px-4 cursor-pointer shadow-sm">
-            Find Another Match
+
+        <h1 className="text-[18px] leading-[26px] font-semibold text-foreground mb-2">
+          {title}
+        </h1>
+
+        <p className="text-[16px] leading-[24px] font-normal text-muted-foreground mb-[24px] w-full max-w-[420px]">
+          {subtitle}
+        </p>
+
+        <div className="h-[40px] w-full flex justify-center">
+          <Button
+            onClick={onContinue}
+            className="h-[40px] rounded-full px-[32px] bg-primary text-primary-foreground hover:bg-primary/90 font-medium animate-in fade-in group"
+          >
+            Continue
           </Button>
-          <button type="button" onClick={onChangeInterests} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-medium py-1.5 bg-transparent border-0">
-            Change Interests
-          </button>
         </div>
+      </div>
+
+      <div className="absolute bottom-8 left-0 right-0 text-center">
+        <p className="text-[13px] text-muted-foreground">
+          By continuing, you agree to our Terms and Privacy Policy
+        </p>
       </div>
     </div>
   )

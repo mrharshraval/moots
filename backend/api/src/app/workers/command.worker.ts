@@ -2,10 +2,10 @@ import { resolve } from "../../config/container.js";
 import { logger } from "../../shared/logger.js";
 
 const POLL_INTERVAL_MS = 100;    // idle poll: 100ms
-const MIN_BACKOFF_MS   = 1_000;  // first retry after error
-const MAX_BACKOFF_MS   = 30_000; // cap at 30s
+const MIN_BACKOFF_MS = 1_000;  // first retry after error
+const MAX_BACKOFF_MS = 30_000; // cap at 30s
 
-let running   = false;
+let running = false;
 let timeoutId: NodeJS.Timeout | null = null;
 let backoffMs = 0; // 0 = no error, use normal poll interval
 
@@ -24,14 +24,14 @@ export async function processCommands() {
       processedCount++;
       const { actorId1, actorId2, policyId, metadata } = JSON.parse(cmd);
       const conversationsService = resolve("conversationsService");
-      
+
       const { randomUUID } = await import("crypto");
       const conversationId = randomUUID();
 
       try {
         logger.info({ conversationId, actorId1, actorId2 }, "Provisioning conversation");
         await conversationsService.createConversation(conversationId, policyId, actorId1, actorId2, metadata);
-        
+
         const EventBus = (await import("../../shared/events/event-bus.js")).EventBus;
         const prisma = (await import("../../database/index.js")).prisma;
 

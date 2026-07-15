@@ -5,3 +5,4 @@ import { requireInternalKey } from "../../../shared/middlewares/internal.middlew
 export const internalConversationsRouter = Router();
 const getController = () => resolve("conversationsController");
 
+internalConversationsRouter.get("/:id/session-metadata", requireInternalKey, (req, res, next) => getController().getSessionMetadata(req, res, next));

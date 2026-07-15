@@ -143,14 +143,10 @@ export class MessagesService {
       const serializedMessage = this.serializer.serialize(message as any, personaMap);
 
       await EventBus.publish(tx, "message.persisted", message.id, "Message", {
-        id: serializedMessage.id,
+        ...serializedMessage,
         clientMessageId: message.clientMessageId,
-        senderActorId: (message as any).sender.actorId,
-        sender: serializedMessage.sender,
-        content: serializedMessage.content,
-        createdAt: serializedMessage.sentAt.toISOString(),
         conversationId: message.conversationId,
-        replyToId: message.replyToId,
+        senderActorId: (message as any).sender.actorId, // Retained for backend Realtime routing logic
       });
 
       return message;

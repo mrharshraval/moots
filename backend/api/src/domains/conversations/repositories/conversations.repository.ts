@@ -40,6 +40,27 @@ export class ConversationsRepository {
       const actor2 = actors.find(a => a.id === data.actorId2);
       
       if (!actor1 || !actor2) throw new Error("Actor not found");
+
+      // Verify each actor's activeMatchConversationId actually points to an ACTIVE conversation.
+      // If the conversation no longer exists or has ended, the pointer is stale — clear it and continue.
+      for (const actor of [actor1, actor2]) {
+        if (!actor.activeMatchConversationId) continue;
+
+        const activeConv = await tx.conversation.findUnique({
+          where: { id: actor.activeMatchConversationId },
+          select: { id: true, status: true }
+        });
+
+        if (!activeConv || activeConv.status !== "ACTIVE") {
+          // Stale pointer — clear it so this actor can match again
+          await tx.actor.update({
+            where: { id: actor.id },
+            data: { activeMatchConversationId: null }
+          });
+          actor.activeMatchConversationId = null;
+        }
+      }
+
       if (actor1.activeMatchConversationId || actor2.activeMatchConversationId) {
         throw new Error("One or both actors already have an active match");
       }
@@ -108,9 +129,13 @@ export class ConversationsRepository {
       orderBy: { lastActivityAt: 'desc' },
       select: {
         id: true,
+        kind: true,
         type: true,
         name: true,
         status: true,
+        endedAt: true,
+        expiresAt: true,
+        endedByActorId: true,
         lastMessageId: true,
         lastMessagePreview: true,
         lastActivityAt: true,
@@ -118,7 +143,8 @@ export class ConversationsRepository {
         participants: {
           select: {
             isPinned: true,
-            isArchived: true,
+            archivedAt: true,
+            favoritedAt: true,
             isMuted: true,
             unreadCount: true,
             actorId: true,

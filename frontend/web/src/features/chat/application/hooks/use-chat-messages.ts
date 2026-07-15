@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useMessagesStore, Message } from "../../presentation/store/messages-store"
+import { useMessagesStore, Message, mapSerializedMessage } from "../../presentation/store/messages-store"
 import { usePartnerStateStore } from "../../presentation/store/partner-state-store"
 import { ConversationRepository } from "@/features/conversations/repositories/conversation.repository"
 import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
@@ -82,11 +82,14 @@ export function useChatMessages({
         status: "SENDING",
         content: text,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        replyTo: replyingTo
+        reply: replyingTo
           ? {
               id: replyingTo.id,
-              sender: replyingTo.sender,
+              type: "TEXT",
               content: replyingTo.content,
+              sender: replyingTo.sender,
+              edited: false,
+              deleted: false,
             }
           : undefined,
       }
@@ -97,13 +100,7 @@ export function useChatMessages({
         sessionId,
         clientMessageId,
         content: text,
-        replyTo: replyingTo
-          ? {
-              id: replyingTo.id,
-              senderId: replyingTo.sender === "user" ? userIdRef.current : "stranger-id",
-              content: replyingTo.content,
-            }
-          : undefined,
+        replyTo: replyingTo ? { id: replyingTo.id } : undefined,
       })
       setReplyingTo(null)
 
@@ -116,7 +113,7 @@ export function useChatMessages({
 
     setInputText("")
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"
+      textareaRef.current.focus()
     }
 
     wsGateway.send("typing-status", { sessionId, isTyping: false })
@@ -143,22 +140,8 @@ export function useChatMessages({
         setPeerActorId(payload.partnerId)
       }
       const history = payload.messages.map((m: any) => ({
-        id: m.id,
-        clientMessageId: m.clientMessageId,
-        status: "PERSISTED",
-        sender: m.senderId === userIdRef.current ? "user" : "stranger",
-        content: m.content,
-        time: m.time,
-        seen: m.seen,
-        edited: m.edited,
-        reactions: m.reactions,
-        replyTo: m.replyTo
-          ? {
-              id: m.replyTo.id,
-              sender: m.replyTo.senderId === userIdRef.current ? "user" : "stranger",
-              content: m.replyTo.content,
-            }
-          : undefined,
+        ...mapSerializedMessage(m, userIdRef.current),
+        status: "PERSISTED" as const,
       }))
       useMessagesStore.getState().setMessages(sessionId, history)
       setPeerIdentity(payload.partnerNickname || "Stranger", payload.partnerUsername || null)
@@ -172,24 +155,7 @@ export function useChatMessages({
     }
 
     const handleMessage = (payload: any) => {
-      const newMsg: Message = {
-        id: payload.id,
-        clientMessageId: payload.clientMessageId,
-        status: payload.status || "DELIVERED",
-        sender: payload.senderId === userIdRef.current ? "user" : "stranger",
-        content: payload.content,
-        time: payload.time,
-        seen: payload.seen,
-        edited: payload.edited,
-        reactions: payload.reactions,
-        replyTo: payload.replyTo
-          ? {
-              id: payload.replyTo.id,
-              sender: payload.replyTo.senderId === userIdRef.current ? "user" : "stranger",
-              content: payload.replyTo.content,
-            }
-          : undefined,
-      }
+      const newMsg = mapSerializedMessage(payload, userIdRef.current);
 
       useMessagesStore.getState().appendMessage(sessionId, newMsg)
 

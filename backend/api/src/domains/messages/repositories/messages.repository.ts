@@ -2,6 +2,30 @@ import { prisma } from "../../../database/index.js";
 import { Prisma } from "@prisma/client";
 
 export class MessagesRepository {
+  private readonly messageInclude = {
+    sender: {
+      include: {
+        persona: true,
+        actor: {
+          include: { user: { select: { id: true, name: true, image: true, username: true } } }
+        }
+      }
+    },
+    receipts: true,
+    replyTo: {
+      include: {
+        sender: {
+          include: {
+            persona: true,
+            actor: {
+              include: { user: { select: { id: true, name: true, image: true, username: true } } }
+            }
+          }
+        }
+      }
+    }
+  };
+
   async create(data: {
     conversationId: string;
     senderParticipantId: string;
@@ -22,16 +46,7 @@ export class MessagesRepository {
         replyToId: data.replyToId,
         metadata: data.metadata || {},
       },
-      include: {
-        sender: {
-          include: {
-            persona: true,
-            actor: {
-              include: { user: { select: { id: true, name: true, image: true, username: true } } }
-            }
-          }
-        }
-      }
+      include: this.messageInclude
     });
   }
 
@@ -46,17 +61,7 @@ export class MessagesRepository {
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: 'desc' },
-      include: {
-        sender: {
-          include: {
-            persona: true,
-            actor: {
-              include: { user: { select: { id: true, name: true, image: true, username: true } } }
-            }
-          }
-        },
-        receipts: true,
-      }
+      include: this.messageInclude
     });
   }
 

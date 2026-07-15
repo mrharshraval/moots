@@ -138,7 +138,7 @@ export function ConversationList() {
                   variant="ghost" 
                   className={cn(
                     "w-full justify-start h-14 rounded-xl px-2 text-sm font-normal cursor-pointer",
-                    pathname === `/chat/${chat.id}` && "bg-muted hover:bg-muted"
+                    pathname === `/chat/${chat.id}` && "bg-secondary text-secondary-foreground hover:bg-secondary/90"
                   )}
                 >
                   <div onClick={() => router.push(`/chat/${chat.id}`)} role="button" tabIndex={0}>

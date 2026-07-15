@@ -116,9 +116,11 @@ export function useChatSession(sessionId: string, session: Session | null) {
     }
   }, [sessionId, resetPartnerState])
 
-  const conversationStatus = useMessagesStore((state) => 
-    state.conversations?.find((c) => c.id === sessionId)?.status || "ACTIVE"
+  const conversation = useMessagesStore((state) => 
+    state.conversations?.find((c) => c.id === sessionId)
   )
+  const conversationStatus = conversation?.status || "ACTIVE"
+  const endedByActorId = conversation?.endedByActorId || null
 
   return {
     userId,
@@ -147,6 +149,7 @@ export function useChatSession(sessionId: string, session: Session | null) {
     isEngaged,
     lastUserMsgId,
     conversationStatus,
+    endedByActorId,
     // Calling features
     callState,
     callType,

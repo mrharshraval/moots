@@ -26,11 +26,21 @@ export interface UserProfile {
   image:       string | null;
 }
 
+export interface ReplyReference {
+  id: string;
+  type: ContentType;
+  content: string;
+  sender: { type: 'persona', data: Persona | undefined } | { type: 'profile', data: UserProfile | undefined };
+  edited: boolean;
+  deleted: boolean;
+}
+
 export interface SerializedMessage {
   id:      string;
   sender:  { type: 'persona', data: Persona | undefined } | { type: 'profile', data: UserProfile | undefined };
   content: string;
   sentAt:  Date;
+  reply?:  ReplyReference;
   metadata?: any;
   receipts?: Record<string, string>;
 }

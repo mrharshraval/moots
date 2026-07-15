@@ -27,6 +27,24 @@ async function callInternalApi(endpoint: string, body: any, requestId: string) {
   return response.json();
 }
 
+async function callInternalApiGet(endpoint: string, requestId: string) {
+  const url = `${env.API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "X-Internal-Service-Key": env.INTERNAL_SERVICE_KEY,
+      "X-Request-ID": requestId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Internal API GET to ${endpoint} failed (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
+
 export async function handleParsedMessage(
   connectionId: string, 
   type: string, 
@@ -109,6 +127,45 @@ export async function handleParsedMessage(
           sessionId,
           connectionType: "chat",
         });
+
+        // Hydrate the session from the API if it's not in memory (e.g., after server restart)
+        if (!sessionService.getSession(sessionId)) {
+          try {
+            const meta = await callInternalApiGet(`/internal/v1/conversations/${sessionId}/session-metadata`, requestId);
+            const metaData = meta?.data || meta;
+            const users: string[] = metaData?.users || [];
+            const nicknames: Record<string, string> = metaData?.nicknames || {};
+            const usernames: Record<string, string | null> = metaData?.usernames || {};
+
+            if (users.length >= 1) {
+              // Reconstitute session. For groups (>2) only the first two slots are used
+              // in the current 1:1 session model; the rest join via the users array.
+              const [uid1, uid2 = uid1] = users;
+              sessionService.createSession(
+                uid1, uid2,
+                nicknames[uid1] || "Stranger",
+                nicknames[uid2] || "Stranger",
+                usernames[uid1] || null,
+                usernames[uid2] || null,
+                sessionId
+              );
+              // Populate all additional users beyond the first two
+              const hydratedSession = sessionService.getSession(sessionId);
+              if (hydratedSession) {
+                for (const uid of users) {
+                  if (!hydratedSession.users.includes(uid)) {
+                    hydratedSession.users.push(uid);
+                    hydratedSession.nicknames[uid] = nicknames[uid] || "Stranger";
+                    hydratedSession.usernames[uid] = usernames[uid] || null;
+                  }
+                }
+              }
+            }
+          } catch (hydrateErr: any) {
+            structuredLog("SESSION_HYDRATION_ERROR", connectionId, { details: hydrateErr.message, sessionId }, "error", conn);
+            return;
+          }
+        }
 
         const session = await sessionService.joinSession(
           sessionId,

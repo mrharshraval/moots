@@ -1,55 +1,40 @@
-import { useState, useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useMatchmakingStore } from "../presentation/store/matchmaking-store"
-import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
+import { matchmakingService } from "../infrastructure/matchmaking.service"
 import { useActorSession } from "@/features/auth"
-import { getAccessToken } from "@/providers/auth-provider"
 
 export function useMatchmakingFlow() {
   const router = useRouter()
-  const { actorId, displayName, username } = useActorSession()
-  const { status, setStatus, matchedSessionId, setMatchedSessionId } = useMatchmakingStore()
+  const { displayName, username } = useActorSession()
   
-  const [interests, setInterests] = useState<string[]>([])
-  const [seconds, setSeconds] = useState(0)
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (status === "searching") {
-      setSeconds(0)
-      timerRef.current = setInterval(() => {
-        setSeconds((prev) => prev + 1)
-      }, 1000)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [status])
+  const status = useMatchmakingStore((state) => state.status)
+  const setStatus = useMatchmakingStore((state) => state.setStatus)
+  const setMatchedSessionId = useMatchmakingStore((state) => state.setMatchedSessionId)
+  const interests = useMatchmakingStore((state) => state.interests)
+  const setInterests = useMatchmakingStore((state) => state.setInterests)
+  const setSearchStartedAt = useMatchmakingStore((state) => state.setSearchStartedAt)
 
   useEffect(() => {
     if (status !== "searching") return
 
-    const handleMatchFound = (payload: any) => {
+    const unsubscribe = matchmakingService.onMatchFound((payload) => {
       if (payload?.sessionId) {
         setStatus("found")
         setMatchedSessionId(payload.sessionId)
+        setSearchStartedAt(null)
         setTimeout(() => {
           router.push(`/chat/${payload.sessionId}`)
         }, 1200)
       }
-    }
-
-    wsGateway.on("match-found", handleMatchFound)
+    })
     
     return () => {
-      wsGateway.off("match-found", handleMatchFound)
+      unsubscribe()
     }
-  }, [status, router, setStatus, setMatchedSessionId])
+  }, [status, router, setStatus, setMatchedSessionId, setSearchStartedAt])
 
-  const startMatchmaking = (targetInterests?: string[]) => {
+  const startMatchmaking = async (targetInterests?: string[]) => {
     let activeInterests = targetInterests
     if (!activeInterests) {
       if (typeof window !== "undefined") {
@@ -63,62 +48,31 @@ export function useMatchmakingFlow() {
     setInterests(activeInterests || [])
     setStatus("searching")
     setMatchedSessionId(null)
+    setSearchStartedAt(Date.now())
 
-    const sendJoin = () => {
-      wsGateway.send("join-queue", {
-        nickname: displayName,
-        username: username,
-        interests: activeInterests,
+    try {
+      await matchmakingService.joinQueue({
+        nickname: displayName || "Anonymous",
+        username: username || "anonymous",
+        interests: activeInterests || [],
         lang: "en",
         country: "global",
       })
-    }
-
-    const doConnect = () => {
-      wsGateway.connect()
-      if (wsGateway.readyState === 1) {
-        sendJoin()
-      } else {
-        const handleOpen = () => {
-          sendJoin()
-          wsGateway.off("open", handleOpen)
-        }
-        wsGateway.on("open", handleOpen)
-      }
-    }
-
-    // If the auth token is already available, connect immediately.
-    // Otherwise, poll for up to 5 seconds (covers the auto-guest-login round trip).
-    if (getAccessToken()) {
-      doConnect()
-    } else {
-      const maxWait = 5000
-      const interval = 200
-      let elapsed = 0
-      const poll = setInterval(() => {
-        elapsed += interval
-        if (getAccessToken()) {
-          clearInterval(poll)
-          doConnect()
-        } else if (elapsed >= maxWait) {
-          clearInterval(poll)
-          // Token never arrived — give up and reset status
-          setStatus("idle")
-        }
-      }, interval)
+    } catch (err) {
+      console.error("Failed to start matchmaking", err)
+      setStatus("idle")
+      setSearchStartedAt(null)
     }
   }
 
   const cancelMatchmaking = () => {
     setStatus("idle")
-    if (wsGateway.readyState === 1) {
-      wsGateway.send("cancel-queue", {}) 
-    }
+    setSearchStartedAt(null)
+    matchmakingService.cancelQueue()
   }
 
   return {
     status,
-    seconds,
     interests,
     setInterests,
     startMatchmaking,

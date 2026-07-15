@@ -47,10 +47,14 @@ export class ConversationsService {
       return {
         id: conv.id,
         type: conv.type,
+        kind: conv.kind,
         name: conv.name,
         status: conv.status,
+        endedAt: conv.endedAt ?? null,
+        expiresAt: conv.expiresAt ?? null,
         isPinned: currentUserParticipant?.isPinned || false,
-        isArchived: currentUserParticipant?.isArchived || false,
+        isArchived: !!currentUserParticipant?.archivedAt,
+        isFavorited: !!currentUserParticipant?.favoritedAt,
         isMuted: currentUserParticipant?.isMuted || false,
         hiddenAt: currentUserParticipant?.hiddenAt || null,
         leftAt: currentUserParticipant?.leftAt || null,
@@ -82,7 +86,7 @@ export class ConversationsService {
 
     const updateData: any = {};
     if (isPinned !== undefined) updateData.isPinned = isPinned;
-    if (isArchived !== undefined) updateData.isArchived = isArchived;
+    if (isArchived !== undefined) updateData.archivedAt = isArchived ? new Date() : null;
     if (isMuted !== undefined) updateData.isMuted = isMuted;
     if (unreadCount !== undefined) updateData.unreadCount = unreadCount;
 
@@ -106,7 +110,13 @@ export class ConversationsService {
 
     return prisma.$transaction(async (tx) => {
       const endedAt = new Date();
-      const expiresAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+      // Only MATCH conversations expire via the retention reaper
+      const expiresAt = (conversation as any).kind === 'MATCH'
+        ? new Date(endedAt.getTime() + 24 * 60 * 60 * 1000) // 24 hours
+        : null;
+
+      const messageCount = await tx.message.count({ where: { conversationId } });
+      const hasMessages = messageCount > 0;
 
       await tx.conversation.update({
         where: { id: conversationId },
@@ -118,19 +128,30 @@ export class ConversationsService {
         }
       });
 
-      // Clear activeMatchConversationId from participants
-      for (const p of conversation.participants) {
-        await tx.actor.update({
-          where: { id: p.actorId },
-          data: { activeMatchConversationId: null }
+      // Clear activeMatchConversationId only for MATCH conversations
+      if ((conversation as any).kind === 'MATCH') {
+        for (const p of conversation.participants) {
+          await tx.actor.update({
+            where: { id: p.actorId },
+            data: { activeMatchConversationId: null }
+          });
+        }
+      }
+
+      // Hide abandoned matches from history
+      if (!hasMessages) {
+        await tx.participant.updateMany({
+          where: { conversationId },
+          data: { hiddenAt: endedAt }
         });
       }
 
       await EventBus.publish(tx, "conversation.ended", conversationId, "Conversation", {
         conversationId,
         endedAt: endedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        expiresAt: expiresAt?.toISOString() ?? null,
         endedByActorId: actorId,
+        hasMessages,
         broadcastRule: "TO_CONVERSATION"
       });
 
@@ -344,5 +365,38 @@ export class ConversationsService {
 
       return { message: "Conversation unhidden", hiddenAt: null };
     });
+  }
+
+  async getSessionMetadata(conversationId: string) {
+    const conv = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        participants: {
+          where: { hasLeft: false },
+          select: {
+            actorId: true,
+            persona: { select: { displayName: true } },
+            actor: {
+              select: {
+                user: { select: { username: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!conv) throw new NotFoundError("Conversation not found");
+
+    const users = conv.participants.map((p: any) => p.actorId);
+    const nicknames: Record<string, string> = {};
+    const usernames: Record<string, string | null> = {};
+
+    conv.participants.forEach((p: any) => {
+      nicknames[p.actorId] = p.persona?.displayName || "Stranger";
+      usernames[p.actorId] = p.actor?.user?.username || null;
+    });
+
+    return { users, nicknames, usernames };
   }
 }

@@ -35,9 +35,18 @@ export const MessagePersistedEventSchema = z.object({
     data: z.any(),
   }),
   content: z.string(),
-  createdAt: z.string(),
+  sentAt: z.union([z.string(), z.date()]),
   clientMessageId: z.string().optional(),
-  replyToId: z.string().nullable().optional(),
+  reply: z.object({
+    id: z.string(),
+    type: z.string(),
+    content: z.string(),
+    sender: z.any(),
+    edited: z.boolean(),
+    deleted: z.boolean(),
+  }).optional(),
+  metadata: z.any().optional(),
+  receipts: z.record(z.string(), z.string()).optional(),
 });
 
 export const MessageDeletedEventSchema = z.object({
@@ -92,6 +101,7 @@ export const ConversationEndedEventSchema = z.object({
   conversationId: z.string(),
   endedAt: z.string(),
   endedByActorId: z.string().optional(),
+  hasMessages: z.boolean().optional(),
   broadcastRule: z.nativeEnum(BroadcastRule).optional(),
 });
 

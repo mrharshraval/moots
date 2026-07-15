@@ -14,8 +14,10 @@ export class OutboxService {
       take: 50,
     });
 
-    if (events.length > 0) {
-      for (const event of events) {
+    let published = 0;
+
+    for (const event of events) {
+      try {
         // Enforce strong typing even when publishing out
         const parsedPayload = DomainEventSchema.parse({
           eventType: event.eventType,
@@ -39,8 +41,21 @@ export class OutboxService {
           where: { id: event.id },
           data: { publishedAt: new Date() },
         });
+
+        published++;
+      } catch (err: any) {
+        // Log the bad event and mark it as published (dead-letter) so it
+        // doesn't poison the queue and block all subsequent events.
+        logger.error({ err, eventId: event.id, eventType: event.eventType }, "Outbox: failed to process event, dead-lettering");
+        await prisma.domainEvent.update({
+          where: { id: event.id },
+          data: { publishedAt: new Date() },
+        });
       }
-      logger.debug(`Published ${events.length} domain events to Redis`);
+    }
+
+    if (published > 0) {
+      logger.debug(`Published ${published} domain events to Redis`);
     }
 
     return events.length;

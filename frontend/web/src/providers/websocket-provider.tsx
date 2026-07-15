@@ -29,7 +29,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       useMessagesStore.getState().updateConversation(payload.conversationId, { 
         status: "ENDED", 
         endedAt: payload.endedAt, 
-        endedByActorId: payload.endedByActorId 
+        endedByActorId: payload.endedByActorId,
+        ...(payload.hasMessages === false ? { hiddenAt: payload.endedAt || new Date().toISOString() } : {})
       })
     }
     

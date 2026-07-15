@@ -38,6 +38,11 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    /* Semantic extension tokens — registered so Tailwind utilities work (bg-success, text-warning, etc.) */
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -47,78 +52,151 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ── LIGHT MODE ──────────────────────────────────────────── */
+/* ── LIGHT MODE ─────────────────────────────────────────────
+ *
+ * Color philosophy: Apple Human Interface Guidelines, applied to
+ * Shadcn's semantic token architecture.
+ *
+ * Apple HIG reference values used:
+ *   systemBackground         #FFFFFF
+ *   secondarySystemBackground #F2F2F7
+ *   label                    #000000
+ *   secondaryLabel (solid)   #3C3C43 @ 60% → #8E8E93 on white
+ *   tertiaryLabel  (solid)   #3C3C43 @ 30% → #6C6C70 on white  (5.2:1 — WCAG AA ✓)
+ *   systemGray5              #E5E5EA
+ *   separator                #3C3C43 @ 29% → #C6C6C8 on white
+ *   systemBlue               #007AFF
+ *   systemRed                #FF3B30
+ *   systemGreen              #34C759
+ *   systemOrange             #FF9F0A
+ * ─────────────────────────────────────────────────────────── */
 :root {
     color-scheme: light;
-    --background: #ffffff;
-    --foreground: #1c1c1e;
-    --card: #f2f2f7;
-    --card-foreground: #1c1c1e;
-    --popover: #ffffff;
-    --popover-foreground: #1c1c1e;
-    --primary: #0a84ff;
-    --primary-foreground: #ffffff;
-    --secondary: #f2f2f7;
-    --secondary-foreground: #1c1c1e;
-    --muted: #f2f2f7;
-    --muted-foreground: #8e8e93;
-    --accent: #f2f2f7;
-    --accent-foreground: #1c1c1e;
-    --destructive: #ef4444;
-    --border: #e5e5ea;
-    --input: #f2f2f7;
-    --ring: #c7c7cc;
-    --radius: 0.625rem;
 
-    /* Chart */
-    --chart-1: #7c3aed;
-    --chart-2: #059669;
-    --chart-3: #2563eb;
-    --chart-4: #d97706;
-    --chart-5: #dc2626;
+    /* Surfaces */
+    --background:              #FFFFFF;  /* Primary page canvas */
+    --foreground:              #000000;  /* Primary label */
+    --card:                    #F2F2F7;  /* Elevated surface (secondarySystemBackground) */
+    --card-foreground:         #000000;
+    --popover:                 #FFFFFF;
+    --popover-foreground:      #000000;
 
-    /* Sidebar — Figma light: white bg, #f2f2f7 active, #e5e5ea border */
-    --sidebar: #ffffff;
-    --sidebar-foreground: #1c1c1e;
-    --sidebar-primary: #1c1c1e;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #f2f2f7;
-    --sidebar-accent-foreground: #1c1c1e;
-    --sidebar-border: #e5e5ea;
-    --sidebar-ring: #c7c7cc;
+    /* Brand */
+    --primary:                 #007AFF;  /* Apple systemBlue — calm, trustworthy */
+    --primary-foreground:      #FFFFFF;
+
+    /* Secondary surface — used for chips, tags, secondary buttons */
+    --secondary:               #E5E5EA;  /* Apple systemGray5 */
+    --secondary-foreground:    #1C1C1E;  /* Slightly softer than pure black on gray */
+
+    /* Muted surfaces and secondary text */
+    --muted:                   #F2F2F7;  /* Grouped background / tinted surfaces */
+    --muted-foreground:        #6C6C70;  /* Apple tertiaryLabel solid — 5.2:1 contrast, WCAG AA */
+
+    /* Accent — same as primary for consistency */
+    --accent:                  #007AFF;
+    --accent-foreground:       #FFFFFF;
+
+    /* Semantic meaning tokens */
+    --destructive:             #FF3B30;  /* Apple systemRed */
+    --success:                 #34C759;  /* Apple systemGreen */
+    --success-foreground:      #FFFFFF;
+    --warning:                 #FF9F0A;  /* Apple systemOrange */
+    --warning-foreground:      #FFFFFF;
+
+    /* Structural */
+    --border:                  #C6C6C8;  /* Apple separator light (rgba(60,60,67,0.29) on white) */
+    --input:                   #F2F2F7;  /* Subtle surface fill — makes inputs visible on white bg */
+    --ring:                    #007AFF;
+    --radius:                  0.5rem;
+
+    /* Data visualization */
+    --chart-1:                 #007AFF;  /* primary blue */
+    --chart-2:                 #34C759;  /* systemGreen */
+    --chart-3:                 #FF3B30;  /* systemRed */
+    --chart-4:                 #FF9F0A;  /* systemOrange */
+    --chart-5:                 #AF52DE;  /* systemPurple */
+
+    /* Sidebar (inherits from main palette) */
+    --sidebar:                 #FFFFFF;
+    --sidebar-foreground:      #000000;
+    --sidebar-primary:         #007AFF;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent:          #F2F2F7;
+    --sidebar-accent-foreground: #1C1C1E;
+    --sidebar-border:          #C6C6C8;
+    --sidebar-ring:            #007AFF;
 }
 
-/* ── DARK MODE ──────────────────────────────────────────── */
+/* ── DARK MODE ──────────────────────────────────────────────
+ *
+ * Apple HIG dark mode reference values:
+ *   systemBackground (elevated) #1C1C1E
+ *   secondarySystemBackground   #2C2C2E
+ *   tertiarySystemBackground    #3A3A3C
+ *   label                       #FFFFFF
+ *   secondaryLabel (solid)      #EBEBF5 @ 60% → #ABABAF on black
+ *   separator                   #545458 @ 65% → #38383A on black
+ *   systemBlue dark             #0A84FF  (slightly brighter for dark bg legibility)
+ *   systemRed dark              #FF453A
+ *   systemGreen dark            #30D158
+ *   systemOrange dark           #FF9F0A
+ * ─────────────────────────────────────────────────────────── */
 .dark {
     color-scheme: dark;
-    --background: #000000;
-    --foreground: #ececec;
-    --card: #1a1a1a;
-    --card-foreground: #ececec;
-    --popover: #1a1a1a;
-    --popover-foreground: #ececec;
-    --primary: #0a84ff;
-    --primary-foreground: #ffffff;
-    --secondary: #2f2f2f;
-    --secondary-foreground: #ececec;
-    --muted: #1f1f1f;
-    --muted-foreground: #8e8ea0;
-    --accent: #2f2f2f;
-    --accent-foreground: #ececec;
-    --destructive: #ef4444;
-    --border: #2a2a2a;
-    --input: #1a1a1a;
-    --ring: #555555;
 
-    /* Sidebar — Figma dark: black bg, #1e1e1e active, no border */
-    --sidebar: #000000;
-    --sidebar-foreground: #ececec;
-    --sidebar-primary: #ffffff;
-    --sidebar-primary-foreground: #000000;
-    --sidebar-accent: #1e1e1e;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: transparent;
-    --sidebar-ring: #555555;
+    /* Surfaces */
+    --background:              #000000;  /* OLED-aware canvas — Apple dark base */
+    --foreground:              #FFFFFF;
+    --card:                    #1C1C1E;  /* Apple elevated dark surface */
+    --card-foreground:         #FFFFFF;
+    --popover:                 #1C1C1E;
+    --popover-foreground:      #FFFFFF;
+
+    /* Brand */
+    --primary:                 #0A84FF;  /* Apple systemBlue dark — brighter for legibility on dark */
+    --primary-foreground:      #FFFFFF;
+
+    /* Secondary surface */
+    --secondary:               #2C2C2E;  /* Apple secondarySystemBackground dark */
+    --secondary-foreground:    #FFFFFF;
+
+    /* Muted surfaces and secondary text */
+    --muted:                   #1C1C1E;  /* Elevated surface — composer pill, input surfaces */
+    --muted-foreground:        #ABABAF;  /* Apple secondaryLabel dark (EBEBF5 @ 60% on black) */
+
+    /* Accent */
+    --accent:                  #0A84FF;
+    --accent-foreground:       #FFFFFF;
+
+    /* Semantic meaning tokens */
+    --destructive:             #FF453A;  /* Apple systemRed dark */
+    --success:                 #30D158;  /* Apple systemGreen dark */
+    --success-foreground:      #000000;
+    --warning:                 #FF9F0A;  /* Apple systemOrange dark */
+    --warning-foreground:      #000000;
+
+    /* Structural */
+    --border:                  #38383A;  /* Apple separator dark (545458 @ 65% on black) */
+    --input:                   #1C1C1E;
+    --ring:                    #0A84FF;
+
+    /* Data visualization */
+    --chart-1:                 #0A84FF;
+    --chart-2:                 #30D158;
+    --chart-3:                 #FF453A;
+    --chart-4:                 #FF9F0A;
+    --chart-5:                 #BF5AF2;  /* systemPurple dark */
+
+    /* Sidebar */
+    --sidebar:                 #000000;
+    --sidebar-foreground:      #FFFFFF;
+    --sidebar-primary:         #0A84FF;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent:          #1C1C1E;
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border:          #38383A;
+    --sidebar-ring:            #0A84FF;
 }
 
 @layer base {
@@ -132,6 +210,162 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+
+    /* Input styling for better legibility */
+    input,
+    textarea,
+    select {
+        @apply bg-input text-foreground placeholder-muted-foreground;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        @apply text-muted-foreground opacity-100;
+    }
+
+    /* Dark mode input adjustments */
+    .dark input,
+    .dark textarea,
+    .dark select {
+        @apply bg-input text-foreground;
+    }
+
+    /* Message input specific styling */
+    [role="textbox"],
+    .message-input,
+    .chat-input {
+        @apply bg-input text-foreground placeholder-muted-foreground border-border;
+    }
+
+    [role="textbox"]::placeholder,
+    .message-input::placeholder,
+    .chat-input::placeholder {
+        @apply text-muted-foreground opacity-100;
+    }
+
+    /* Icon styling in inputs */
+    .input-icon,
+    .message-icon {
+        @apply text-muted-foreground hover:text-foreground transition-colors;
+    }
+
+    .dark .input-icon,
+    .dark .message-icon {
+        @apply text-muted-foreground hover:text-foreground;
+    }
+
+    /* Typography & Font Sizing Hierarchy */
+    h1 {
+        @apply text-3xl font-bold leading-tight tracking-tight;
+    }
+
+    h2 {
+        @apply text-2xl font-semibold leading-snug tracking-tight;
+    }
+
+    h3 {
+        @apply text-xl font-semibold leading-snug;
+    }
+
+    h4 {
+        @apply text-lg font-semibold;
+    }
+
+    h5 {
+        @apply text-base font-semibold;
+    }
+
+    h6 {
+        @apply text-sm font-semibold;
+    }
+
+    p {
+        @apply text-base leading-relaxed;
+    }
+
+    small {
+        @apply text-sm leading-normal;
+    }
+
+    label {
+        @apply text-sm font-medium leading-normal;
+    }
+
+    /* Input & Textarea Font Sizing.
+     * Sets a consistent 16px/normal baseline for all text inputs.
+     * The message composer overrides these values more precisely via ComposerInput.tsx.
+     * Do NOT add leading-normal here — it creates a specificity conflict with
+     * the composer's authoritative leading-[24px] (1.5× line-height) value.
+     */
+    input,
+    textarea,
+    select {
+        @apply text-base font-normal;
+    }
+
+    /* Message Input/Composer Specific */
+    .message-input,
+    .chat-input,
+    [role="textbox"] {
+        @apply text-base font-normal leading-relaxed px-4 py-3;
+        min-height: 2.75rem;
+        /* 44px - iOS standard */
+    }
+
+    .message-input::placeholder,
+    .chat-input::placeholder,
+    [role="textbox"]::placeholder {
+        @apply text-base;
+    }
+
+    /* Icon sizing in message composer */
+    .message-icon,
+    .input-icon {
+        @apply w-5 h-5;
+        /* 20px icons */
+    }
+
+    .message-icon-lg,
+    .input-icon-lg {
+        @apply w-6 h-6;
+        /* 24px icons */
+    }
+
+    .message-icon-sm,
+    .input-icon-sm {
+        @apply w-4 h-4;
+        /* 16px icons */
+    }
+
+    /* Button base styles.
+     * Icon-only buttons (e.g. composer action buttons) are excluded via .icon-btn.
+     * Text buttons in forms and nav use text-sm/medium as a sensible default.
+     */
+    button:not(.icon-btn) {
+        @apply text-sm font-medium;
+    }
+
+    button.btn-lg {
+        @apply text-base;
+    }
+
+    button.btn-sm {
+        @apply text-xs;
+    }
+
+    /* Link styling */
+    a {
+        @apply text-base underline-offset-4 hover:underline;
+    }
+
+    /* Code blocks */
+    code {
+        @apply text-xs font-mono;
+    }
+
+    pre {
+        @apply text-xs font-mono leading-relaxed;
     }
 }
 
@@ -164,8 +398,16 @@
     height: 4px !important;
 }
 
+.custom-scrollbar::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent !important;
+    margin-top: 12px !important;
+    margin-bottom: 4px !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -177,9 +419,11 @@
     background: rgba(128, 128, 128, 0.5) !important;
 }
 
-.custom-scrollbar {
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(128, 128, 128, 0.3) transparent !important;
+@supports not selector(::-webkit-scrollbar) {
+    .custom-scrollbar {
+        scrollbar-width: thin !important;
+        scrollbar-color: rgba(128, 128, 128, 0.3) transparent !important;
+    }
 }
 
 /* Indeterminate Premium Progress Bar Animation */
@@ -206,4 +450,16 @@
     background-color: var(--primary);
     animation: progress-slide 2s infinite ease-in-out;
 }
-
+
+/* ── Reply highlight flash ───────────────────────────────────────── */
+@keyframes reply-flash {
+    0%   { background-color: transparent; }
+    20%  { background-color: color-mix(in srgb, var(--primary) 15%, transparent); }
+    80%  { background-color: color-mix(in srgb, var(--primary) 15%, transparent); }
+    100% { background-color: transparent; }
+}
+
+.reply-highlight {
+    animation: reply-flash 1.4s ease-in-out forwards;
+    border-radius: 1rem;
+}

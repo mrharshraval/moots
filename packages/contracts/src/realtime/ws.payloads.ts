@@ -30,8 +30,6 @@ export const SendMessagePayloadSchema = z.object({
   clientMessageId: z.string().optional(),
   replyTo: z.object({
     id: z.string(),
-    senderId: z.string(),
-    content: z.string(),
   }).optional(),
 });
 

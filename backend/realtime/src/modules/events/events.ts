@@ -84,21 +84,19 @@ export function handleDomainEvent(event: DomainEvent) {
 
     case "message.persisted": {
       const payload = event.payload;
-      const { id, clientMessageId, conversationId, senderActorId, sender, content, createdAt, replyToId } = payload;
+      const { conversationId, senderActorId, clientMessageId } = payload;
       const session = sessionService.getSession(conversationId);
       
+      // Pass the canonical serialized message directly
       const wsMsg = {
-        id,
-        clientMessageId,
-        senderId: senderActorId,
-        sender,
-        content,
-        time: createdAt,
-        reactions: {},
+        ...payload,
+        status: "PERSISTED",
         seen: false,
-        replyTo: replyToId ? { id: replyToId } : undefined,
-        status: "PERSISTED"
       };
+      
+      // Clean up internal routing keys from the public payload
+      delete wsMsg.conversationId;
+      delete wsMsg.senderActorId;
 
       if (session) {
         session.messages.push({ ...wsMsg, _actorId: senderActorId });
@@ -395,11 +393,11 @@ export function handleDomainEvent(event: DomainEvent) {
     }
 
     case "conversation.ended": {
-      const { conversationId, endedAt, endedByActorId, broadcastRule } = event.payload;
+      const { conversationId, endedAt, endedByActorId, hasMessages, broadcastRule } = event.payload;
       if (broadcastRule === "TO_CONVERSATION") {
         sessionService.broadcast(conversationId, {
           type: "conversation:ended",
-          payload: { conversationId, endedAt, endedByActorId }
+          payload: { conversationId, endedAt, endedByActorId, hasMessages }
         }, registry);
       }
       break;

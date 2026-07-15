@@ -1,23 +1,59 @@
-import { Message, Persona, SerializedMessage } from '../dto/message.types.js';
+import { Message, Persona, SerializedMessage, ReplyReference } from '../dto/message.types.js';
 
 export class MessageSerializer {
   serialize(
-    message:    Message,
-    personaMap: Map<string, Persona>,        // participantId â†’ persona
+    message:    Message & { replyTo?: any, receipts?: any, sender?: any },
+    personaMap: Map<string, Persona>,
   ): SerializedMessage {
 
-    const sender = { type: 'persona' as const, data: personaMap.get(message.senderParticipantId) };
+    const personaData = personaMap.get(message.senderParticipantId);
+    const sender = { 
+      type: 'persona' as const, 
+      data: {
+        ...personaData,
+        actorId: message.sender?.actorId,
+      }
+    };
 
-    return {
+    const serialized: SerializedMessage = {
       id:      message.id,
       sender,
       content: message.content,
       sentAt:  message.createdAt,
       metadata: (message as any).metadata,
-      receipts: (message as any).receipts?.reduce((acc: any, r: any) => {
+      receipts: message.receipts?.reduce((acc: any, r: any) => {
         acc[r.actorId] = r.status;
         return acc;
       }, {})
+    };
+
+    if (message.replyTo) {
+      serialized.reply = this.serializeReply(message.replyTo, personaMap);
+    }
+
+    return serialized;
+  }
+
+  private serializeReply(
+    replyMessage: any,
+    personaMap: Map<string, Persona>
+  ): ReplyReference {
+    const personaData = personaMap.get(replyMessage.senderParticipantId);
+    const sender = { 
+      type: 'persona' as const, 
+      data: {
+        ...personaData,
+        actorId: replyMessage.sender?.actorId,
+      }
+    };
+
+    return {
+      id: replyMessage.id,
+      type: replyMessage.contentType,
+      content: replyMessage.content,
+      sender,
+      edited: replyMessage.isEdited || false,
+      deleted: replyMessage.deletedAt !== null,
     };
   }
 }

@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { AppError } from "../errors/AppError.js";
 import { logger } from "../logger.js";
 import { sendError } from "../utils/response.js";
@@ -19,6 +19,11 @@ export const globalErrorHandler = (
   }
 
   // Handle Prisma Errors if they leak through
+  if (err.name === 'PrismaClientValidationError') {
+    logger.error({ requestId, error: err }, `Prisma Validation Error: ${err.message}`);
+    return sendError(res, "DATABASE_ERROR", "A database schema or validation error occurred", [], 500);
+  }
+
   if (err.code && typeof err.code === 'string' && err.code.startsWith('P')) {
     logger.error({ requestId, error: err }, `Database Error: ${err.message}`);
     return sendError(res, "DATABASE_ERROR", "A database error occurred", [], 500);
