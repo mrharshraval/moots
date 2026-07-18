@@ -4,35 +4,25 @@ import * as React from "react"
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Volume2, User } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 
-export interface CallOverlayProps {
-  callState: "idle" | "ringing_incoming" | "ringing_outgoing" | "active" | "ended"
-  callType: "AUDIO" | "VIDEO" | null
-  peerDisplayName: string
-  localStream: MediaStream | null
-  remoteStream: MediaStream | null
-  isAudioMuted: boolean
-  isVideoMuted: boolean
-  acceptCall: () => void
-  declineCall: () => void
-  endCall: () => void
-  toggleMute: () => void
-  toggleCamera: () => void
-}
+import { useChatSessionContext } from "../chat-session-context"
 
-export function CallOverlay({
-  callState,
-  callType,
-  peerDisplayName,
-  localStream,
-  remoteStream,
-  isAudioMuted,
-  isVideoMuted,
-  acceptCall,
-  declineCall,
-  endCall,
-  toggleMute,
-  toggleCamera
-}: CallOverlayProps) {
+export interface CallOverlayProps {}
+
+export function CallOverlay({}: CallOverlayProps) {
+  const {
+    callState,
+    callType,
+    peerDisplayName,
+    localStream,
+    remoteStream,
+    isAudioMuted,
+    isVideoMuted,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleCamera
+  } = useChatSessionContext()
   const localVideoRef = React.useRef<HTMLVideoElement>(null)
   const remoteVideoRef = React.useRef<HTMLVideoElement>(null)
   const [duration, setDuration] = React.useState(0)

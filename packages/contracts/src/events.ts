@@ -176,6 +176,21 @@ export const ConnectionCancelledEventSchema = z.object({
   actorId2: z.string(),
 });
 
+export const UserReconnectingEventSchema = z.object({
+  actorId: z.string(),
+  sessionId: z.string().optional(),
+});
+
+export const UserReconnectedEventSchema = z.object({
+  actorId: z.string(),
+  sessionId: z.string().optional(),
+});
+
+export const UserDisconnectedEventSchema = z.object({
+  actorId: z.string(),
+  sessionId: z.string().optional(),
+});
+
 export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("notification.created"), payload: NotificationCreatedEventSchema }),
   z.object({ eventType: z.literal("conversation.provisioned"), payload: ConversationProvisionedEventSchema }),
@@ -199,6 +214,9 @@ export const DomainEventSchema = z.discriminatedUnion("eventType", [
   z.object({ eventType: z.literal("call.ended"), payload: CallEndedEventSchema }),
   z.object({ eventType: z.literal("conversation.hidden"), payload: ConversationHiddenEventSchema }),
   z.object({ eventType: z.literal("conversation.ended"), payload: ConversationEndedEventSchema }),
+  z.object({ eventType: z.literal("user.reconnecting"), payload: UserReconnectingEventSchema }),
+  z.object({ eventType: z.literal("user.reconnected"), payload: UserReconnectedEventSchema }),
+  z.object({ eventType: z.literal("user.disconnected"), payload: UserDisconnectedEventSchema }),
 ]);
 
 export type DomainEvent = z.infer<typeof DomainEventSchema>;
@@ -217,6 +235,7 @@ export type WSInboundEventType =
   | "connection:removed"
   | "connection:reject"
   | "connection:cancel"
+  | "leave-chat"
   | "webrtc:offer"
   | "webrtc:answer"
   | "webrtc:ice-candidate";
@@ -237,6 +256,8 @@ export type WSOutboundEventType =
   | "connection:removed"
   | "connection:rejected"
   | "connection:cancelled"
+  | "partner-reconnecting"
+  | "partner-reconnected"
   | "partner-disconnected"
   | "notification-received"
   | "error"

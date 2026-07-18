@@ -32,8 +32,8 @@ export interface Session {
 interface AuthContextValue {
   session: Session | null
   status: AuthStatus
-  update: (data?: any) => Promise<Session | null>
-  signIn: (type: "guest" | "credentials", credentials?: any) => Promise<void>
+  update: (data?: unknown) => Promise<Session | null>
+  signIn: (type: "guest" | "credentials", credentials?: Record<string, unknown>) => Promise<void>
   signOut: (options?: { redirect?: boolean }) => Promise<void>
 }
 
@@ -53,7 +53,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [status, setStatus] = useState<AuthStatus>("loading")
-  const [refreshPromise, setRefreshPromise] = useState<Promise<any> | null>(null)
+  const [refreshPromise, setRefreshPromise] = useState<Promise<Session | null> | null>(null)
 
   const performRefresh = async () => {
     try {
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           try {
             // Fetch profile to get real identity
-            const profileRes = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/profile/me`, {
+            const profileRes = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/user/me`, {
               headers: {
                 "Authorization": `Bearer ${json.data.accessToken}`
               }
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { globalRefreshSession = null; }
   }, [])
 
-  const signIn = async (type: "guest" | "credentials", credentials?: any) => {
+  const signIn = async (type: "guest" | "credentials", credentials?: Record<string, unknown>) => {
     setStatus("loading")
     try {
       const endpoint = type === "guest" ? "/api/auth/guest" : "/api/auth/login"
@@ -191,11 +191,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async (options?: { redirect?: boolean }) => {
     setStatus("loading")
     try {
-      // Clear HTTP-Only cookie. For this to work robustly, we might want a backend /logout endpoint
-      // but if there isn't one, we just clear local state and the token.
+      await fetch(`${env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Request-ID": crypto.randomUUID(),
+        },
+      }).catch(console.error);
+
       currentAccessToken = null;
       setSession(null)
       setStatus("unauthenticated")
+      
+      // Also clear Zustand stores if we are logging out
+      // We can rely on the full page reload to clear memory, but if options.redirect is false, we should clear it
+      
       if (options?.redirect !== false && typeof window !== "undefined") {
         window.location.href = "/login"
       }
@@ -204,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const update = async (data?: any) => {
+  const update = async (data?: unknown) => {
     return refreshSession()
   }
 

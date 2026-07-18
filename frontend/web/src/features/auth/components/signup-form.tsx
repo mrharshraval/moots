@@ -8,26 +8,75 @@ import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
 import { toast } from "sonner";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/infrastructure/http/api-client";
 import { env } from "@/env";
+import { AuthFormContainer } from "./auth-form-container";
 
 export function SignupForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [agreeAge, setAgreeAge] = useState(false);
+
+  const [emailError, setEmailError] = useState(false);
+  const [emailErrorMsg, setEmailErrorMsg] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const validateEmail = (val: string) => {
+    if (!val) {
+      setEmailError(true);
+      setEmailErrorMsg("You need to enter your email.");
+      return false;
+    }
+    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+    if (!isValid) {
+      setEmailError(true);
+      setEmailErrorMsg("This email is invalid. Make sure it's written like example@email.com");
+      return false;
+    }
+    setEmailError(false);
+    setEmailErrorMsg("");
+    return true;
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (emailError) {
+      const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value);
+      if (isValid || e.target.value === "") {
+        setEmailError(false);
+        setEmailErrorMsg("");
+      } else {
+        setEmailError(true);
+        setEmailErrorMsg("This email is invalid. Make sure it's written like example@email.com");
+      }
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (email) {
+      validateEmail(email);
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
-      return;
+    
+    let valid = true;
+    
+    if (!validateEmail(email)) {
+      valid = false;
     }
-    if (!agreeAge || !agreeTerms) {
-      toast.error("Please agree to the terms and age requirements to continue");
+
+    if (!password) {
+      setPasswordError("You need to enter a password.");
+      valid = false;
+    } else {
+      setPasswordError("");
+    }
+
+    if (!valid) {
       return;
     }
 
@@ -44,114 +93,104 @@ export function SignupForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Something went wrong");
+        const errorMsg = typeof data.error === "string"
+          ? data.error
+          : data.error?.message || data.message || "Something went wrong";
+        if (errorMsg.toLowerCase().includes("email")) {
+          setEmailError(true);
+          setEmailErrorMsg(errorMsg);
+        } else {
+          setPasswordError(errorMsg);
+        }
         return;
       }
 
-      toast.success("Verification OTP sent to your email");
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
+      sessionStorage.setItem("verify_email", email);
+      router.push("/verify");
     } catch (err) {
       console.error(err);
-      toast.error("An unexpected error occurred");
+      setPasswordError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md border-border bg-card shadow-lg">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
-          Create an Account
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Enter your email to sign up and verify your account
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-         <form onSubmit={handleSignup} className="space-y-4">
-           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-             <Label htmlFor="email" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-               Email Address
-             </Label>
-             <div className="relative flex items-center mt-0.5">
-               <Mail className="absolute left-0 size-4 text-muted-foreground" />
-               <Input
-                 id="email"
-                 type="email"
-                 placeholder="name@example.com"
-                 value={email}
-                 onChange={(e) => setEmail(e.target.value)}
-                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading}
-               />
-             </div>
-           </div>
-           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-             <Label htmlFor="password" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-               Password
-             </Label>
-             <div className="relative flex items-center mt-0.5">
-               <Lock className="absolute left-0 size-4 text-muted-foreground" />
-               <Input
-                 id="password"
-                 type="password"
-                 placeholder="••••••••"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading}
-               />
-             </div>
+    <AuthFormContainer
+      title="Create an account"
+      footerText="Already have an account?"
+      footerLinkText="Login"
+      footerLinkHref="/login"
+    >
+      <form onSubmit={handleSignup} className="w-full space-y-4">
+        <div className="space-y-1.5 flex flex-col items-start w-full">
+          <Label htmlFor="email" className="text-sm font-bold text-foreground">
+            Email address
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="name@domain.com"
+            value={email}
+            onChange={handleEmailChange}
+            onBlur={handleEmailBlur}
+            aria-invalid={emailError}
+            className={`w-full bg-transparent rounded-md h-12 px-3 text-base transition-all placeholder:text-muted-foreground ${
+              emailError
+                ? "border-destructive text-destructive focus:border-destructive hover:border-destructive"
+                : "border-border text-foreground hover:border-foreground focus:border-foreground"
+            }`}
+            disabled={loading}
+          />
+          {emailError && (
+            <div className="flex items-start gap-1.5 mt-1 text-destructive">
+              <AlertCircle className="w-[18px] h-[18px] mt-[1.5px] shrink-0" />
+              <p className="text-[14px] leading-tight font-medium">
+                {emailErrorMsg}
+              </p>
             </div>
-            <div className="space-y-3 py-1">
-              <div className="flex items-start gap-2.5">
-                <input
-                  id="agree-age"
-                  type="checkbox"
-                  checked={agreeAge}
-                  onChange={(e) => setAgreeAge(e.target.checked)}
-                  className="mt-0.5 rounded border-border text-primary focus:ring-primary size-4 shrink-0 cursor-pointer"
-                  required
-                />
-                <Label htmlFor="agree-age" className="text-xs text-muted-foreground font-normal leading-normal cursor-pointer select-none">
-                  I confirm that I meet the minimum age requirement of 13 years (or local age of consent).
-                </Label>
-              </div>
+          )}
+        </div>
 
-              <div className="flex items-start gap-2.5">
-                <input
-                  id="agree-terms"
-                  type="checkbox"
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="mt-0.5 rounded border-border text-primary focus:ring-primary size-4 shrink-0 cursor-pointer"
-                  required
-                />
-                <Label htmlFor="agree-terms" className="text-xs text-muted-foreground font-normal leading-normal cursor-pointer select-none">
-                  I agree to the{" "}
-                  <Link href="/policies/terms" className="text-primary hover:underline font-semibold" target="_blank">
-                    Terms of Use
-                  </Link>{" "}
-                  and acknowledge the{" "}
-                  <Link href="/policies/privacy" className="text-primary hover:underline font-semibold" target="_blank">
-                    Privacy Policy
-                  </Link>
-                  , consenting to the processing of my data.
-                </Label>
-              </div>
+        <div className="space-y-1.5 flex flex-col items-start w-full">
+          <Label htmlFor="password" className="text-sm font-bold text-foreground">
+            Password
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (passwordError) setPasswordError("");
+            }}
+            aria-invalid={!!passwordError}
+            className={`w-full bg-transparent rounded-md h-12 px-3 text-base transition-all placeholder:text-muted-foreground ${
+              passwordError
+                ? "border-destructive text-destructive focus:border-destructive hover:border-destructive"
+                : "border-border text-foreground hover:border-foreground focus:border-foreground"
+            }`}
+            disabled={loading}
+          />
+          {passwordError && (
+            <div className="flex items-start gap-1.5 mt-1 text-destructive">
+              <AlertCircle className="w-[18px] h-[18px] mt-[1.5px] shrink-0" />
+              <p className="text-[14px] leading-tight font-medium">
+                {passwordError}
+              </p>
             </div>
-            <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading || !agreeAge || !agreeTerms}>
-              {loading ? "Sending OTP" : "Sign Up"}
-            </Button>
-          </form>
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-center gap-1 border-t border-border/40 p-4 text-center">
-        <span className="text-[11px] text-muted-foreground">Already have an account?</span>
-        <Link href="/login" className="text-[11px] font-semibold text-primary hover:underline">
-          Login
-        </Link>
-      </CardFooter>
-    </Card>
+          )}
+        </div>
+        
+        <Button 
+          type="submit" 
+          className="w-full h-12 rounded-full font-bold text-base mt-6 bg-primary text-primary-foreground " 
+          disabled={loading}
+        >
+          Signup
+        </Button>
+      </form>
+    </AuthFormContainer>
   );
 }

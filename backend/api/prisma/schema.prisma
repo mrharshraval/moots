@@ -114,6 +114,11 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum VerificationTokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
 enum NotificationType {
   NEW_MESSAGE
   MESSAGE_REPLY
@@ -187,10 +192,11 @@ model Session {
 }
 
 model VerificationToken {
-  id         String   @id @default(cuid())
+  id         String                @id @default(cuid())
   identifier String
-  token      String   @unique
+  token      String                @unique
   expires    DateTime
+  type       VerificationTokenType @default(VERIFY_EMAIL)
 
   @@unique([identifier, token])
 }
@@ -216,7 +222,7 @@ model Actor {
   type           ActorType
   userId         String?
   guestSessionId String?
-  
+
   activeMatchConversationId String?
   activeMatchConversation   Conversation? @relation(name: "ActiveMatch", fields: [activeMatchConversationId], references: [id], onDelete: SetNull)
 
@@ -264,21 +270,21 @@ model Device {
 // =========================================================
 
 model Connection {
-  id        String           @id @default(cuid())
+  id       String           @id @default(cuid())
   // Application code MUST store actor1Id/actor2Id in a canonical order
   // (e.g. lexicographically smaller id first) when creating a row, so that
   // a pair can never end up with two rows in conflicting states
   // (one ACCEPTED, one BLOCKED). The @@unique below only protects a single
   // ordering, not the mirror image.
-  actor1Id  String
-  actor2Id  String
-  status    ConnectionStatus @default(PENDING)
-  
+  actor1Id String
+  actor2Id String
+  status   ConnectionStatus @default(PENDING)
+
   originMatchConversationId String?
   respondedAt               DateTime?
-  
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   actor1 Actor @relation("ConnectionActor1", fields: [actor1Id], references: [id], onDelete: Cascade)
   actor2 Actor @relation("ConnectionActor2", fields: [actor2Id], references: [id], onDelete: Cascade)
@@ -309,13 +315,13 @@ model Conversation {
   lastMessagePreview String?
   lastActivityAt     DateTime @default(now())
 
-  policy       Policy        @relation(fields: [policyId], references: [id], onDelete: Restrict)
-  lastMessage  Message?      @relation("ConversationLastMessage", fields: [lastMessageId], references: [id], onDelete: SetNull)
-  participants Participant[]
-  messages     Message[]     @relation("ConversationMessages")
-  invites      GroupInvite[]
-  calls        Call[]
-  activeMatchActors Actor[] @relation("ActiveMatch")
+  policy            Policy        @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  lastMessage       Message?      @relation("ConversationLastMessage", fields: [lastMessageId], references: [id], onDelete: SetNull)
+  participants      Participant[]
+  messages          Message[]     @relation("ConversationMessages")
+  invites           GroupInvite[]
+  calls             Call[]
+  activeMatchActors Actor[]       @relation("ActiveMatch")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -337,10 +343,10 @@ model Participant {
   // User-specific conversation settings
   persona Persona?
 
-  isPinned          Boolean   @default(false)
-  archivedAt        DateTime?
-  favoritedAt       DateTime?
-  historyClearedAt  DateTime?
+  isPinned         Boolean   @default(false)
+  archivedAt       DateTime?
+  favoritedAt      DateTime?
+  historyClearedAt DateTime?
 
   isMuted     Boolean   @default(false)
   mutedUntil  DateTime? // null + isMuted = muted indefinitely
@@ -505,7 +511,7 @@ model GroupRequest {
   initiatedById  String
   targetActorId  String
   respondedAt    DateTime?
-  
+
   @@unique([conversationId, targetActorId, type, status])
 }
 

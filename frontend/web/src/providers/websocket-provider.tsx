@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, ReactNode, useEffect, useState } from "react"
 import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
-import { useMessagesStore } from "@/features/chat/presentation/store/messages-store"
 
 interface WebSocketContextValue {
   readyState: number
@@ -20,30 +19,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     const handleOpen = () => setReadyState(1) // WebSocket.OPEN is 1
     const handleClose = () => setReadyState(3) // WebSocket.CLOSED is 3
-    
-    const handleConversationHidden = (payload: any) => {
-      useMessagesStore.getState().updateConversation(payload.conversationId, { hiddenAt: payload.hiddenAt })
-    }
-
-    const handleConversationEnded = (payload: any) => {
-      useMessagesStore.getState().updateConversation(payload.conversationId, { 
-        status: "ENDED", 
-        endedAt: payload.endedAt, 
-        endedByActorId: payload.endedByActorId,
-        ...(payload.hasMessages === false ? { hiddenAt: payload.endedAt || new Date().toISOString() } : {})
-      })
-    }
-    
     wsGateway.on("open", handleOpen)
     wsGateway.on("close", handleClose)
-    wsGateway.on("conversation:hidden", handleConversationHidden)
-    wsGateway.on("conversation:ended", handleConversationEnded)
 
     return () => {
       wsGateway.off("open", handleOpen)
       wsGateway.off("close", handleClose)
-      wsGateway.off("conversation:hidden", handleConversationHidden)
-      wsGateway.off("conversation:ended", handleConversationEnded)
       wsGateway.disconnect()
     }
   }, [])

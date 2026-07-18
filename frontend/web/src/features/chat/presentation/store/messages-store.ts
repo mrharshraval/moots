@@ -35,11 +35,13 @@ export interface Message {
 }
 
 export function mapSerializedMessage(payload: any, currentUserId: string): Message {
-  const isUser = payload.sender?.data?.actorId === currentUserId;
+  const senderId = payload.senderActorId || payload.sender?.data?.actorId;
+  const isUser = senderId === currentUserId;
 
   let mappedReply: ReplyReference | undefined = undefined;
   if (payload.reply) {
-    const isReplyUser = payload.reply.sender?.data?.actorId === currentUserId;
+    const replySenderId = payload.reply.senderActorId || payload.reply.sender?.data?.actorId;
+    const isReplyUser = replySenderId === currentUserId;
     
     mappedReply = {
       id: payload.reply.id,
@@ -60,7 +62,7 @@ export function mapSerializedMessage(payload: any, currentUserId: string): Messa
     time: payload.time || payload.sentAt || new Date().toISOString(),
     seen: payload.seen || false,
     edited: payload.edited || false,
-    reactions: payload.receipts || payload.reactions || {},
+    reactions: payload.reactions || {},
     reply: mappedReply,
   };
 }
@@ -88,6 +90,11 @@ export interface Conversation {
   endedByActorId: string | null
 }
 
+interface NormalizedMessages {
+  byId: Record<string, Message>
+  allIds: string[]
+}
+
 interface MessagesState {
   conversations: Conversation[]
   isLoading: boolean
@@ -99,7 +106,7 @@ interface MessagesState {
   nextCursor: string | null
   hasMore: boolean
   
-  messagesByChatId: Record<string, Message[]>
+  messagesByChatId: Record<string, NormalizedMessages>
   deletedChatIds: string[]
   
   setFilter: (filter: "all" | "archived" | "requests" | "history" | "favorites") => void
@@ -114,9 +121,10 @@ interface MessagesState {
   setMessages: (conversationId: string, messages: Message[]) => void
   appendMessage: (conversationId: string, message: Message) => void
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void
+  deleteMessage: (conversationId: string, messageId: string) => void
 }
 
-export const useMessagesStore = create<MessagesState>((set) => ({
+export const useMessagesStore = create<MessagesState>()((set) => ({
   conversations: [],
   isLoading: false,
   error: null,
@@ -130,7 +138,6 @@ export const useMessagesStore = create<MessagesState>((set) => ({
   messagesByChatId: {},
   deletedChatIds: [],
 
-
   setFilter: (filter) => set({ filter }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setSelectedChatId: (selectedChatId) => set({ selectedChatId }),
@@ -142,7 +149,12 @@ export const useMessagesStore = create<MessagesState>((set) => ({
     set((state) => ({
       conversations: (state.conversations || []).map((c) => {
         if (c.id === conversationId) {
-          return { ...c, lastMessagePreview: message.content, updatedAt: message.createdAt || new Date().toISOString(), unreadCount: c.unreadCount + 1 }
+          return { 
+            ...c, 
+            lastMessagePreview: message.content, 
+            updatedAt: message.createdAt || new Date().toISOString(), 
+            unreadCount: message.sender === "user" ? c.unreadCount : c.unreadCount + 1 
+          }
         }
         return c
       }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
@@ -158,58 +170,130 @@ export const useMessagesStore = create<MessagesState>((set) => ({
   },
 
   setMessages: (conversationId: string, messages: Message[]) => {
+    const byId: Record<string, Message> = {}
+    const allIds: string[] = []
+    messages.forEach((m) => {
+      const key = m.id || m.clientMessageId
+      if (key) {
+        byId[key] = m
+        allIds.push(key)
+      }
+    })
     set((state) => ({
       messagesByChatId: {
         ...state.messagesByChatId,
-        [conversationId]: messages,
+        [conversationId]: { byId, allIds },
       },
     }))
   },
 
   appendMessage: (conversationId: string, message: Message) => {
     set((state) => {
-      const existing = state.messagesByChatId[conversationId] || []
-      
-      if (message.clientMessageId) {
-        const index = existing.findIndex(m => m.clientMessageId === message.clientMessageId)
-        if (index !== -1) {
-          const updated = [...existing]
-          updated[index] = { ...updated[index], ...message }
-          return {
-            messagesByChatId: { ...state.messagesByChatId, [conversationId]: updated },
-          }
+      const existing = state.messagesByChatId[conversationId] || { byId: {}, allIds: [] }
+      const key = message.clientMessageId || message.id
+      if (!key) return state
+
+      // Is it a brand new message?
+      if (!existing.byId[message.id] && (!message.clientMessageId || !existing.byId[message.clientMessageId])) {
+        // It does not exist by ID nor by clientMessageId, append it.
+        return {
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [conversationId]: {
+              byId: { ...existing.byId, [key]: message },
+              allIds: [...existing.allIds, key],
+            },
+          },
         }
-      } else if (message.id) {
-         const index = existing.findIndex(m => m.id === message.id)
-         if (index !== -1) {
-            const updated = [...existing]
-            updated[index] = { ...updated[index], ...message }
-            return {
-              messagesByChatId: { ...state.messagesByChatId, [conversationId]: updated },
-            }
-         }
       }
 
-      return {
-        messagesByChatId: {
-          ...state.messagesByChatId,
-          [conversationId]: [...existing, message],
-        },
+      // It exists. We need to find the old key.
+      const oldKey = existing.byId[message.id] 
+        ? message.id 
+        : (message.clientMessageId && existing.byId[message.clientMessageId] 
+            ? message.clientMessageId 
+            : null);
+
+      if (oldKey) {
+        const newKey = message.id || oldKey; // prefer the real ID
+        
+        const newById = { ...existing.byId }
+        const updatedMsg = { ...newById[oldKey], ...message }
+        
+        if (newKey !== oldKey) {
+          // Remap the key
+          delete newById[oldKey]
+          newById[newKey] = updatedMsg
+          
+          const newAllIds = existing.allIds.map(id => id === oldKey ? newKey : id)
+          
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [conversationId]: {
+                byId: newById,
+                allIds: newAllIds,
+              }
+            }
+          }
+        } else {
+          // Same key
+          newById[oldKey] = updatedMsg
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [conversationId]: {
+                ...existing,
+                byId: newById,
+              }
+            }
+          }
+        }
       }
+
+      return state;
     })
   },
 
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => {
     set((state) => {
-      const existing = state.messagesByChatId[conversationId] || []
+      const existing = state.messagesByChatId[conversationId]
+      if (!existing) return state
+      
+      const msgToUpdate = existing.byId[messageId]
+      if (!msgToUpdate) return state
+
       return {
         messagesByChatId: {
           ...state.messagesByChatId,
-          [conversationId]: existing.map((m) =>
-            m.id === messageId || (m.clientMessageId && m.clientMessageId === messageId)
-              ? { ...m, ...updates }
-              : m
-          ),
+          [conversationId]: {
+            ...existing,
+            byId: {
+              ...existing.byId,
+              [messageId]: { ...msgToUpdate, ...updates },
+            },
+          },
+        },
+      }
+    })
+  },
+
+  deleteMessage: (conversationId: string, messageId: string) => {
+    set((state) => {
+      const existing = state.messagesByChatId[conversationId]
+      if (!existing) return state
+
+      const newById = { ...existing.byId }
+      delete newById[messageId]
+
+      return {
+        messagesByChatId: {
+          ...state.messagesByChatId,
+          [conversationId]: {
+            ...existing,
+            byId: newById,
+            allIds: existing.allIds.filter((id) => id !== messageId),
+          },
         },
       }
     })

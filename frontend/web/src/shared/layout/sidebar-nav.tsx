@@ -73,7 +73,7 @@ const getUserInitials = (name?: string | null, email?: string | null) => {
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const { state, setOpen, isMobile } = useSidebar()
+  const { state, setOpen, setOpenMobile, isMobile } = useSidebar()
   const { data: session, signOut } = useSession()
   const [helpOpen, setHelpOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
@@ -151,7 +151,13 @@ export function SidebarNav() {
                         "group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
                       )}
                     >
-                      <Link href={item.href} className="flex items-center gap-3 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center">
+                      <Link 
+                        href={item.href} 
+                        className="flex items-center gap-3 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center"
+                        onClick={() => {
+                          if (isMobile) setOpenMobile(false)
+                        }}
+                      >
                         <item.icon className="size-5 shrink-0" strokeWidth={1.75} />
                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                       </Link>

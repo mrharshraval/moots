@@ -84,6 +84,13 @@ export async function handleParsedMessage(
 
       case "join-queue": {
         if (!actorId) return;
+
+        // Do not allow users in RECONNECTING state to join the matchmaking queue
+        if (sessionService.isReconnecting(actorId)) {
+          structuredLog("MATCHMAKING_BLOCKED", connectionId, { details: "User is currently reconnecting" }, "warn", conn);
+          return;
+        }
+
         const { interests, lang, country, nickname, username } = payload;
         
         registry.updateMetadata(connectionId, {
@@ -384,6 +391,23 @@ export async function handleParsedMessage(
             structuredLog("REDIS_COMMAND_QUEUE_ERROR", connectionId, { details: err.message }, "error", conn);
           });
         }
+        break;
+      }
+
+      case "leave-chat": {
+        if (!actorId) return;
+        await sessionService.handleIntentionalLeave(
+          connectionId,
+          registry,
+          (partnerWs: any, disconnectedUserId: string) => {
+            partnerWs.send(
+              JSON.stringify({
+                type: "partner-disconnected",
+                payload: { partnerId: disconnectedUserId },
+              })
+            );
+          }
+        );
         break;
       }
 

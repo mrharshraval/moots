@@ -58,7 +58,7 @@ export function ProfileCard() {
               )}
             </Avatar>
             <div className="pb-1">
-              <Label htmlFor="avatar-upload" className="cursor-pointer text-xs font-semibold text-foreground hover:underline bg-muted/40 px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-muted/80">
+              <Label htmlFor="avatar-upload" className="cursor-pointer text-xs font-semibold text-foreground  bg-muted/40 px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-muted/80">
                 Upload Avatar
               </Label>
               <Input
@@ -93,7 +93,7 @@ export function ProfileCard() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                    className="pl-9 h-10 border-border bg-background text-sm text-foreground"
                     placeholder="Display name"
                     disabled={loading}
                   />
@@ -111,7 +111,7 @@ export function ProfileCard() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                    className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                    className="pl-9 h-10 border-border bg-background text-sm text-foreground"
                     placeholder="username"
                     disabled={loading}
                   />
@@ -145,7 +145,7 @@ export function ProfileCard() {
                   id="bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="pl-9 min-h-[80px] border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                  className="pl-9 min-h-[80px] border-border bg-background text-sm text-foreground"
                   placeholder="Tell us about yourself"
                   disabled={loading}
                 />

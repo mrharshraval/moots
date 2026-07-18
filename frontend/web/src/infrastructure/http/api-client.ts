@@ -78,12 +78,9 @@ export async function apiRequest(url: string, options: RequestOptions = {}): Pro
            fetchOptions.headers = headers;
            return fetch(url, fetchOptions); // Note: Simple retry, ignoring logging for retry right now
         } else {
-           logger.error(`Refresh failed for 401 request: ${method} ${url}. Redirecting to login.`, postPayload);
-           if (typeof window !== "undefined") {
-             window.location.href = "/login";
-             // Return a never-resolving promise to pause execution while the browser navigates
-             return new Promise<Response>(() => {});
-           }
+           logger.error(`Refresh failed for 401 request: ${method} ${url}.`, postPayload);
+           // Return the original 401 response so the caller can handle it
+           return res;
         }
       }
 

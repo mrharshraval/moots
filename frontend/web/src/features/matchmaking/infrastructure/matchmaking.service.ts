@@ -42,11 +42,11 @@ class MatchmakingService {
       if (wsGateway.readyState === 1) {
         resolve()
       } else {
-        const handleOpen = () => {
+        const handleOpen = (payload?: unknown) => {
           resolve()
-          wsGateway.off("open", handleOpen)
+          wsGateway.off("open", handleOpen as (payload: unknown) => void)
         }
-        wsGateway.on("open", handleOpen)
+        wsGateway.on("open", handleOpen as (payload: unknown) => void)
       }
     })
   }
@@ -73,9 +73,12 @@ class MatchmakingService {
    * Subscribes to the match-found event. Returns an unsubscribe function.
    */
   onMatchFound(callback: (payload: { sessionId: string }) => void): () => void {
-    wsGateway.on("match-found", callback)
+    const handler = (payload: unknown) => {
+      callback(payload as { sessionId: string })
+    }
+    wsGateway.on("match-found", handler)
     return () => {
-      wsGateway.off("match-found", callback)
+      wsGateway.off("match-found", handler)
     }
   }
 }

@@ -9,41 +9,76 @@ import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
 import { toast } from "sonner";
-import { User, Lock } from "lucide-react";
+import { User, Lock, AlertCircle } from "lucide-react";
+import { AuthFormContainer } from "./auth-form-container";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn } = useSession();
-  
+  const { signIn, update } = useSession();
+
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const emailParam = searchParams.get("email");
-    const verified = searchParams.get("verified");
+    const verifiedParam = searchParams.get("verified");
     const error = searchParams.get("error");
 
-    if (emailParam) {
-      setIdentifier(emailParam);
+    const storedEmail = typeof window !== "undefined" ? sessionStorage.getItem("login_email") : null;
+    const storedVerified = typeof window !== "undefined" ? sessionStorage.getItem("verified_success") : null;
+    
+    const finalEmail = emailParam || storedEmail;
+    if (finalEmail) {
+      setIdentifier(finalEmail);
+      if (typeof window !== "undefined") sessionStorage.removeItem("login_email");
     }
-    if (verified === "true") {
-      toast.success("Account verified successfully! Please log in.");
+
+    if (verifiedParam === "true" || storedVerified === "true") {
+      sessionStorage.removeItem("verified_success");
     }
+
+    // Clean up URL if they happened to arrive with query params
+    if ((emailParam || verifiedParam) && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("email");
+      url.searchParams.delete("verified");
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+
     if (error) {
       if (error === "CredentialsSignin") {
-        toast.error("Invalid username/email or password.");
+        setPasswordError("Invalid username/email or password.");
       } else {
-        toast.error("Authentication failed. Please try again.");
+        setPasswordError("Authentication failed. Please try again.");
       }
     }
   }, [searchParams]);
 
+  const [identifierError, setIdentifierError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier || !password) {
-      toast.error("Please enter your credentials");
+
+    let valid = true;
+
+    if (!identifier) {
+      setIdentifierError("Please enter your email or username.");
+      valid = false;
+    } else {
+      setIdentifierError("");
+    }
+
+    if (!password) {
+      setPasswordError("Please enter your password.");
+      valid = false;
+    } else {
+      setPasswordError("");
+    }
+
+    if (!valid) {
       return;
     }
 
@@ -55,75 +90,103 @@ export function LoginForm() {
         password,
         redirect: false,
       });
-
-      toast.success("Welcome back");
+      await update();
       router.push("/");
       router.refresh();
     } catch (err) {
       console.error(err);
-      toast.error("Invalid username/email or password");
+      setPasswordError("Invalid username/email or password");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md border-border bg-card shadow-lg">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
-          Welcome to Moots
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Enter your username/email and password to log in
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-         <form onSubmit={handleLogin} className="space-y-4">
-           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-             <Label htmlFor="identifier" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-               Username or Email
-             </Label>
-             <div className="relative flex items-center mt-0.5">
-               <User className="absolute left-0 size-4 text-muted-foreground" />
-               <Input
-                 id="identifier"
-                 type="text"
-                 placeholder="username or email"
-                 value={identifier}
-                 onChange={(e) => setIdentifier(e.target.value)}
-                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading}
-               />
-             </div>
-           </div>
-           <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-             <Label htmlFor="password" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-               Password
-             </Label>
-             <div className="relative flex items-center mt-0.5">
-               <Lock className="absolute left-0 size-4 text-muted-foreground" />
-               <Input
-                 id="password"
-                 type="password"
-                 placeholder="••••••••"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 className="w-full bg-transparent border-none p-0 pl-6 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading}
-               />
-             </div>
-           </div>
-           <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
-             {loading ? "Logging in" : "Log In"}
-           </Button>
-         </form>
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-center gap-1 border-t border-border/40 p-4 text-center">
-        <span className="text-[11px] text-muted-foreground">New to Moots?</span>
-        <Link href="/signup" className="text-[11px] font-semibold text-primary hover:underline">
-          Create an Account
-        </Link>
-      </CardFooter>
-    </Card>
+    <AuthFormContainer
+      title="Log in to Moots"
+      footerText="Don't have an account?"
+      footerLinkText="Signup"
+      footerLinkHref="/signup"
+    >
+      <form onSubmit={handleLogin} className="w-full space-y-4">
+        <div className="space-y-1.5 flex flex-col items-start w-full">
+          <Label htmlFor="identifier" className="text-sm font-bold text-foreground">
+            Email or username
+          </Label>
+          <Input
+            id="identifier"
+            type="text"
+            placeholder="Email or username"
+            value={identifier}
+            onChange={(e) => {
+              setIdentifier(e.target.value);
+              if (identifierError) setIdentifierError("");
+            }}
+            aria-invalid={!!identifierError}
+            className={`w-full bg-transparent rounded-md h-12 px-3 text-base transition-all placeholder:text-muted-foreground ${
+              identifierError
+                ? "border-destructive text-destructive focus:border-destructive hover:border-destructive"
+                : "border-border text-foreground hover:border-foreground focus:border-foreground"
+            }`}
+            disabled={loading}
+          />
+          {identifierError && (
+            <div className="flex items-start gap-1.5 mt-1 text-destructive">
+              <AlertCircle className="w-[18px] h-[18px] mt-[1.5px] shrink-0" />
+              <p className="text-[14px] leading-tight font-medium">
+                {identifierError}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1.5 flex flex-col items-start w-full">
+          <div className="flex w-full items-center justify-between">
+            <Label htmlFor="password" className="text-sm font-bold text-foreground">
+              Password
+            </Label>
+            <Link 
+              href="/password/reset" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (passwordError) setPasswordError("");
+            }}
+            aria-invalid={!!passwordError}
+            className={`w-full bg-transparent rounded-md h-12 px-3 text-base transition-all placeholder:text-muted-foreground ${
+              passwordError
+                ? "border-destructive text-destructive focus:border-destructive hover:border-destructive"
+                : "border-border text-foreground hover:border-foreground focus:border-foreground"
+            }`}
+            disabled={loading}
+          />
+          {passwordError && (
+            <div className="flex items-start gap-1.5 mt-1 text-destructive">
+              <AlertCircle className="w-[18px] h-[18px] mt-[1.5px] shrink-0" />
+              <p className="text-[14px] leading-tight font-medium">
+                {passwordError}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-12 rounded-full font-bold text-base mt-6 bg-primary text-primary-foreground "
+          disabled={loading}
+        >
+          Login
+        </Button>
+      </form>
+    </AuthFormContainer>
   );
 }

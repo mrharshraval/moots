@@ -212,13 +212,13 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
             </div>
             <div className="flex flex-col gap-2 col-span-2 md:col-span-1">
               <span className="font-semibold text-[13px] text-white">Legal</span>
-              <Link href="/policies/terms" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/terms" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Terms of Use</Link>
-              <Link href="/policies/privacy" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/privacy" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Privacy Policy</Link>
-              <Link href="/policies/cookies" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/cookies" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Cookie Policy</Link>
-              <Link href="/policies/acceptable-use" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/acceptable-use" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Acceptable Use</Link>
-              <Link href="/policies/content-moderation" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/content-moderation" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Content Moderation</Link>
-              <Link href="/policies/copyright" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/copyright" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Copyright Policy</Link>
-              <Link href="/policies/legal-requests" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/legal-requests" ? "text-white underline underline-offset-2" : "text-neutral-400"}`}>Legal Requests</Link>
+              <Link href="/policies/terms" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/terms" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Terms of Use</Link>
+              <Link href="/policies/privacy" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/privacy" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Privacy Policy</Link>
+              <Link href="/policies/cookies" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/cookies" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Cookie Policy</Link>
+              <Link href="/policies/acceptable-use" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/acceptable-use" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Acceptable Use</Link>
+              <Link href="/policies/content-moderation" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/content-moderation" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Content Moderation</Link>
+              <Link href="/policies/copyright" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/copyright" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Copyright Policy</Link>
+              <Link href="/policies/legal-requests" className={`text-[13px] hover:text-white transition-colors ${pathname === "/policies/legal-requests" ? "text-white underline-offset-2" : "text-neutral-400"}`}>Legal Requests</Link>
             </div>
             <div className="flex flex-col gap-2">
               <span className="font-semibold text-[13px] text-white">Connect</span>

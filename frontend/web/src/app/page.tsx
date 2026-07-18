@@ -87,21 +87,33 @@ export default function LandingPage() {
       <LandingHeader />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-32 bg-background">
-        <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground mb-6 leading-tight">
-            Talk to Someone New <span className="text-primary">Instantly</span>
-          </h1>
-          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Meet people around the world anonymously. No registration, no onboarding, no friction. Just one click to connect.
-          </p>
+      <section className="relative overflow-hidden py-32 lg:py-48 bg-background">
+        <div className="absolute inset-0 max-w-[1400px] mx-auto z-0">
+          <div className="w-full h-full relative rounded-2xl lg:rounded-[2rem] overflow-hidden bg-muted/20 border border-border/50">
+            <img
+              src="/assets/hero-v12.png"
+              alt="Chatting with stranger"
+              className="w-full h-full object-cover object-center opacity-90 dark:opacity-70"
+            />
+          </div>
+        </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button asChild size="lg" className="w-full sm:w-auto h-12 text-sm font-semibold px-8 shadow-lg shadow-primary/20">
-              <Link href="/chat">
-                Start Chat
-              </Link>
-            </Button>
+        <div className="container mx-auto px-4 max-w-7xl relative z-10 flex flex-col justify-center h-full">
+          <div className="max-w-xl">
+            <h1 className="text-5xl sm:text-6xl font-medium tracking-tight text-white mb-3 leading-[0.9]">
+              Private conversations
+            </h1>
+            <p className="text-[15px] text-white/90 mb-8 leading-relaxed max-w-md drop-shadow-sm">
+              Meet people around the world anonymously. No registration, no onboarding, no friction. Just one click to connect.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <Button asChild size="lg" className="w-full sm:w-auto h-12 text-sm font-semibold px-8 shadow-lg shadow-primary/20">
+                <Link href="/chat">
+                  Start Chat
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -134,7 +146,7 @@ export default function LandingPage() {
               },
             ].map((faq, index) => (
               <AccordionItem key={index} value={`item-${index}`} className="border-none">
-                <AccordionTrigger className="text-sm font-semibold text-foreground py-4 hover:no-underline">
+                <AccordionTrigger className="text-sm font-semibold text-foreground py-4 ">
                   {faq.q}
                 </AccordionTrigger>
                 <AccordionContent className="text-[13px] text-muted-foreground leading-relaxed pb-4">

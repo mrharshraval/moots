@@ -530,13 +530,18 @@ function SidebarMenuButton({
     }
   }
 
+  // Only render Tooltip if it's actually going to be shown.
+  // Otherwise TooltipTrigger might intercept and swallow clicks on desktop.
+  if (state !== "collapsed" || isMobile) {
+    return button
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
         side="right"
         align="center"
-        hidden={state !== "collapsed" || isMobile}
         {...tooltip}
       />
     </Tooltip>

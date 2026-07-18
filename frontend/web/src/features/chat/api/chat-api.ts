@@ -1,6 +1,5 @@
 import { apiRequest } from "@/infrastructure/http/api-client"
 import { env } from "@/env"
-import { useMessagesStore, Conversation } from "../presentation/store/messages-store"
 
 export class ChatApi {
   static async sendConnectionRequest(receiverId: string, senderId: string): Promise<void> {
@@ -28,6 +27,24 @@ export class ChatApi {
     } catch (error) {
       console.error(error)
       throw error
+    }
+  }
+
+  static async fetchMessages(conversationId: string, cursor?: string): Promise<{ messages: any[], nextCursor: string | null }> {
+    try {
+      let url = `${env.NEXT_PUBLIC_API_URL}/api/conversations/${conversationId}/messages?limit=50`;
+      if (cursor) url += `&cursor=${cursor}`;
+      const res = await apiRequest(url);
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Failed to fetch messages: ${errText}`);
+      }
+      const json = await res.json();
+      const data = json.data || json;
+      return { messages: data.messages || [], nextCursor: data.nextCursor || null };
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
   }
 }

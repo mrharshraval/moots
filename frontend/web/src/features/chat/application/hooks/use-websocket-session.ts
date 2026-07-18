@@ -18,6 +18,7 @@ export function useWebSocketSession({
   onOpen,
 }: UseWebSocketSessionProps) {
   const setIsWsReady = usePartnerStateStore((state) => state.setIsWsReady)
+  const setIsReconnectingLocal = usePartnerStateStore((state) => state.setIsReconnectingLocal)
 
   const sessionRef = React.useRef(session)
   React.useEffect(() => {
@@ -25,7 +26,13 @@ export function useWebSocketSession({
   }, [session])
 
   React.useEffect(() => {
+    // Wait until session is loaded to avoid race condition
+    if (!session?.accessToken) {
+      return
+    }
+
     const handleOpen = () => {
+      setIsReconnectingLocal(false)
       const currentSession = sessionRef.current
       wsGateway.send("join-chat", {
         nickname: getOrInitializeNickname(),
@@ -37,6 +44,7 @@ export function useWebSocketSession({
 
     const handleClose = () => {
       setIsWsReady(false)
+      setIsReconnectingLocal(true)
     }
 
     wsGateway.on("open", handleOpen)
@@ -50,6 +58,8 @@ export function useWebSocketSession({
     return () => {
       wsGateway.off("open", handleOpen)
       wsGateway.off("close", handleClose)
+      wsGateway.send("leave-chat")
+      wsGateway.disconnect()
     }
-  }, [sessionId, setIsWsReady, onOpen])
+  }, [sessionId, setIsWsReady, onOpen, session?.accessToken])
 }

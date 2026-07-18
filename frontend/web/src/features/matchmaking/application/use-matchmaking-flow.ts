@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import { useMatchmakingStore } from "../presentation/store/matchmaking-store"
 import { matchmakingService } from "../infrastructure/matchmaking.service"
 import { useActorSession } from "@/features/auth"
+import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
 
 export function useMatchmakingFlow() {
   const router = useRouter()
@@ -29,8 +30,17 @@ export function useMatchmakingFlow() {
       }
     })
     
+    const handleWsClose = () => {
+      console.warn("Matchmaking: WebSocket closed while searching, resetting status.")
+      setStatus("idle")
+      setSearchStartedAt(null)
+    }
+    
+    wsGateway.on("close", handleWsClose)
+
     return () => {
       unsubscribe()
+      wsGateway.off("close", handleWsClose)
     }
   }, [status, router, setStatus, setMatchedSessionId, setSearchStartedAt])
 

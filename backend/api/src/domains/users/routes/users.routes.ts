@@ -7,4 +7,5 @@ import { UpdateSettingsSchema } from "@moots/contracts";
 export const usersRouter = Router();
 const controller = new UsersController();
 
+usersRouter.get("/me", authenticate, controller.getMe);
 usersRouter.put("/settings", authenticate, validateRequest(UpdateSettingsSchema), controller.updateSettings);

@@ -23,14 +23,14 @@ export function PreviewBubble({ reply, originalIsUser, onClick }: PreviewBubbleP
       aria-label="Jump to quoted message"
       className={cn(
         "relative flex items-center text-left cursor-pointer border bg-background p-0 outline-none transition-opacity duration-200 hover:opacity-70",
-        // Geometry: Scaled down border radii
-        "rounded-[16px] px-3 py-1.5 w-fit max-w-[200px]",
+        // Geometry: Normal message sizing
+        "rounded-[20px] px-4 py-2 w-fit max-w-full",
         originalIsUser
           ? "border-primary text-primary" // Hollow User bubble
           : "border-secondary-foreground/20 text-muted-foreground" // Hollow Stranger bubble
       )}
     >
-      <span className="text-[12px] leading-snug line-clamp-1 font-medium tracking-tight">
+      <span className="text-[15px] leading-relaxed line-clamp-1 break-words w-full">
         {reply.deleted ? <em className="opacity-70">Deleted message</em> : reply.content}
       </span>
     </button>

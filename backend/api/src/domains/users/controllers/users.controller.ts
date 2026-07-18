@@ -25,4 +25,33 @@ export class UsersController {
 
     return sendSuccess(res, { user }, { message: "Profile updated successfully" });
   });
+  getMe = asyncHandler(async (req: Request, res: Response) => {
+    const actorId = req.user!.actorId!;
+    const { prisma } = await import("../../../database/index.js");
+    const actor = await prisma.actor.findUnique({ 
+      where: { id: actorId },
+      include: { user: true }
+    });
+
+    if (!actor) {
+      throw new Error("Actor not found");
+    }
+
+    if (actor.user) {
+      return sendSuccess(res, {
+        id: actor.user.id,
+        email: actor.user.email,
+        username: actor.user.username,
+        name: actor.user.name,
+        bio: actor.user.bio,
+        image: actor.user.image,
+        createdAt: actor.user.createdAt
+      });
+    } else {
+      return sendSuccess(res, {
+        id: actorId,
+        name: "Guest"
+      });
+    }
+  });
 }

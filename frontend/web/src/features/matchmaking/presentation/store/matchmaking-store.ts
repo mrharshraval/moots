@@ -14,7 +14,7 @@ interface MatchmakingState {
   setSearchStartedAt: (timestamp: number | null) => void
 }
 
-export const useMatchmakingStore = create<MatchmakingState>((set) => ({
+export const useMatchmakingStore = create<MatchmakingState>()((set) => ({
   status: "idle",
   matchedSessionId: null,
   interests: [],

@@ -11,6 +11,18 @@ export type CallStatus = "RINGING" | "ONGOING" | "ENDED" | "MISSED" | "DECLINED"
 export type ReportTargetType = "MESSAGE" | "ACTOR";
 export type ReportStatus = "OPEN" | "REVIEWING" | "RESOLVED" | "DISMISSED";
 
+export enum PresenceStatus {
+  ONLINE = "ONLINE",
+  AWAY = "AWAY",
+  RECONNECTING = "RECONNECTING",
+  OFFLINE = "OFFLINE",
+}
+
+export enum ConversationState {
+  ACTIVE = "ACTIVE",
+  ENDED = "ENDED",
+}
+
 // Common DTOs
 export interface ActorDto {
   id: string;

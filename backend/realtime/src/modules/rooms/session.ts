@@ -75,10 +75,12 @@ export class SessionService {
       }
     }
 
+    let isReconnecting = false;
     const existingTimeout = session.disconnectTimeouts.get(actorId);
     if (existingTimeout) {
       clearTimeout(existingTimeout);
       session.disconnectTimeouts.delete(actorId);
+      isReconnecting = true;
     }
 
     // Delete Redis disconnect key globally to signal reconnection
@@ -86,13 +88,20 @@ export class SessionService {
 
     session.activeConnections.set(actorId, connectionId);
 
-    const partnerId = session.users.find((id) => id !== actorId);
-    if (partnerId) {
-      const partnerConnId = session.activeConnections.get(partnerId);
-      if (partnerConnId) {
-        const partnerConn = registry.get(partnerConnId);
-        if (partnerConn && partnerConn.ws) {
-          onPartnerJoined(partnerConn.ws, actorId);
+    if (isReconnecting) {
+      this.broadcast(sessionId, {
+        type: "partner-reconnected",
+        payload: { partnerId: actorId }
+      }, registry, [actorId]);
+    } else {
+      const partnerId = session.users.find((id) => id !== actorId);
+      if (partnerId) {
+        const partnerConnId = session.activeConnections.get(partnerId);
+        if (partnerConnId) {
+          const partnerConn = registry.get(partnerConnId);
+          if (partnerConn && partnerConn.ws) {
+            onPartnerJoined(partnerConn.ws, actorId);
+          }
         }
       }
     }
@@ -110,9 +119,15 @@ export class SessionService {
         if (connId === connectionId) {
           session.activeConnections.delete(actorId);
 
-          // Set global Redis disconnect key with TTL
+          // Broadcast partner-reconnecting to the other participants immediately
+          this.broadcast(sessionId, {
+            type: "partner-reconnecting",
+            payload: { partnerId: actorId }
+          }, registry, [actorId]);
+
+          // Set global Redis disconnect key with TTL (add extra padding so it survives the timeout)
           const redisKey = `moots:session:${sessionId}:disconnect:${actorId}`;
-          await redis.setex(redisKey, Math.ceil(RECONNECT_TIMEOUT / 1000), "1");
+          await redis.setex(redisKey, Math.ceil(RECONNECT_TIMEOUT / 1000) + 60, "1");
 
           const timeoutId = setTimeout(async () => {
             session.disconnectTimeouts.delete(actorId);
@@ -140,6 +155,52 @@ export class SessionService {
           }, RECONNECT_TIMEOUT);
 
           session.disconnectTimeouts.set(actorId, timeoutId);
+        }
+      }
+    }
+  }
+
+  isReconnecting(actorId: string): boolean {
+    for (const session of this.sessions.values()) {
+      if (session.disconnectTimeouts.has(actorId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async handleIntentionalLeave(
+    connectionId: string,
+    registry: ConnectionRegistry,
+    onPartnerDisconnected: (ws: WebSocket, disconnectedUserId: string) => void
+  ) {
+    for (const [sessionId, session] of this.sessions.entries()) {
+      for (const [actorId, connId] of session.activeConnections.entries()) {
+        if (connId === connectionId) {
+          session.activeConnections.delete(actorId);
+          const existingTimeout = session.disconnectTimeouts.get(actorId);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            session.disconnectTimeouts.delete(actorId);
+          }
+
+          const redisKey = `moots:session:${sessionId}:disconnect:${actorId}`;
+          await redis.del(redisKey);
+
+          const partnerId = session.users.find((id) => id !== actorId);
+          if (partnerId) {
+            const partnerConnId = session.activeConnections.get(partnerId);
+            if (partnerConnId) {
+              const partnerConn = registry.get(partnerConnId);
+              if (partnerConn && partnerConn.ws) {
+                onPartnerDisconnected(partnerConn.ws, actorId);
+              }
+            }
+          }
+
+          if (session.activeConnections.size === 0) {
+            this.sessions.delete(sessionId);
+          }
         }
       }
     }

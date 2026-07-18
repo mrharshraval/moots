@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useMessagesStore } from "@/features/chat"
-import { ConversationRepository } from "../repositories/conversation.repository"
+import { useConversationActions } from "./use-conversation-actions"
+import { wsGateway } from "@/infrastructure/websocket/ws-gateway"
 
 export function useConversations() {
   const filter = useMessagesStore((state) => state.filter)
@@ -17,8 +18,10 @@ export function useConversations() {
 
   const [now, setNow] = React.useState(Date.now())
 
+  const { fetchConversations, updateSettings, endConversation, hideConversation } = useConversationActions()
+
   React.useEffect(() => {
-    ConversationRepository.fetchConversations().catch(console.error)
+    fetchConversations().catch(console.error)
     
     // Timer to re-evaluate expiresAt periodically
     const interval = setInterval(() => {
@@ -26,7 +29,7 @@ export function useConversations() {
     }, 60000)
     
     return () => clearInterval(interval)
-  }, [])
+  }, [fetchConversations])
 
   React.useEffect(() => {
     if (!hasMore) return
@@ -35,7 +38,7 @@ export function useConversations() {
       (entries) => {
         const state = useMessagesStore.getState()
         if (entries[0].isIntersecting && nextCursor && !state.isLoading) {
-          ConversationRepository.fetchConversations(nextCursor).catch(console.error)
+          fetchConversations(nextCursor).catch(console.error)
         }
       },
       { threshold: 1.0 }
@@ -47,7 +50,31 @@ export function useConversations() {
     return () => {
       if (observerRef.current) observerRef.current.disconnect()
     }
-  }, [hasMore, nextCursor])
+  }, [hasMore, nextCursor, fetchConversations])
+
+  // Realtime Sync for Global Conversation Events
+  React.useEffect(() => {
+    const handleConversationHidden = (payload: any) => {
+      useMessagesStore.getState().updateConversation(payload.conversationId, { hiddenAt: payload.hiddenAt })
+    }
+
+    const handleConversationEnded = (payload: any) => {
+      useMessagesStore.getState().updateConversation(payload.conversationId, { 
+        status: "ENDED", 
+        endedAt: payload.endedAt, 
+        endedByActorId: payload.endedByActorId,
+        ...(payload.hasMessages === false ? { hiddenAt: payload.endedAt || new Date().toISOString() } : {})
+      })
+    }
+
+    wsGateway.on("conversation:hidden", handleConversationHidden)
+    wsGateway.on("conversation:ended", handleConversationEnded)
+
+    return () => {
+      wsGateway.off("conversation:hidden", handleConversationHidden)
+      wsGateway.off("conversation:ended", handleConversationEnded)
+    }
+  }, [])
 
   const filteredConversations = React.useMemo(() => {
     let filtered = conversations || []
@@ -109,8 +136,8 @@ export function useConversations() {
     filteredConversations,
     loadMoreRef,
     hasMore,
-    updateSettings: ConversationRepository.updateConversationSettings,
-    endConversation: ConversationRepository.endConversation,
-    hideConversation: ConversationRepository.hideConversation
+    updateSettings,
+    endConversation,
+    hideConversation
   }
 }

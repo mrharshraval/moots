@@ -110,42 +110,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           h-14 (56px) — matches sidebar header height for visual alignment.
           px-4 — standard content padding.
         */}
-        <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between px-4 bg-background/95 backdrop-blur-md">
+        {!(pathname.startsWith("/chat/") && pathname !== "/chat/waiting" && pathname !== "/chat/disconnected") && (
+          <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between px-4 bg-background/95 backdrop-blur-md">
 
-          {/* LEFT: expand trigger (when sidebar collapsed) + avatar + name */}
-          <div className="flex items-center gap-3">
-            {/* Show when sidebar is in icon-only mode */}
-            <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-accent hidden peer-data-[state=collapsed]:flex [&_svg]:size-5" />
-            {isMobile && (
-              <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-accent [&_svg]:size-5" />
-            )}
-            {!(pathname === "/chat" || pathname === "/chat/waiting") && (
-              <div className="flex items-center gap-2.5">
-                <Avatar className="size-8">
-                  <AvatarFallback className="text-sm font-semibold bg-foreground/10">
-                    {partnerName ? partnerName.substring(0, 2).toUpperCase() : initials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-semibold leading-none">
-                  {partnerName ? partnerName : displayName}
-                </span>
+            {/* LEFT: expand trigger (when sidebar collapsed) + avatar + name */}
+            <div className="flex items-center gap-3">
+              {/* Show when sidebar is in icon-only mode */}
+              <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-accent hidden peer-data-[state=collapsed]:flex [&_svg]:size-5" />
+              {isMobile && (
+                <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-accent [&_svg]:size-5" />
+              )}
+              {!(pathname === "/chat" || pathname === "/chat/waiting") && (
+                <div className="flex items-center gap-2.5">
+                  <Avatar className="size-8">
+                    <AvatarFallback className="text-sm font-semibold bg-foreground/10">
+                      {partnerName ? partnerName.substring(0, 2).toUpperCase() : initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-semibold leading-none">
+                    {partnerName ? partnerName : displayName}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT: auth buttons when not logged in */}
+            {!session && (
+              <div className="flex items-center gap-3">
+                <Button asChild variant="ghost" size="sm" className="text-[13px] text-muted-foreground hover:text-foreground">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="text-[13px] h-8">
+                  <Link href="/signup">Sign Up</Link>
+                </Button>
               </div>
             )}
-          </div>
 
-          {/* RIGHT: auth buttons when not logged in */}
-          {!session && (
-            <div className="flex items-center gap-3">
-              <Button asChild variant="ghost" size="sm" className="text-[13px] text-muted-foreground hover:text-foreground">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="text-[13px] h-8">
-                <Link href="/signup">Sign Up</Link>
-              </Button>
-            </div>
-          )}
-
-        </header>
+          </header>
+        )}
 
         {/* ── PAGE CONTENT ── */}
         <div className="flex-1 min-h-0 overflow-hidden">

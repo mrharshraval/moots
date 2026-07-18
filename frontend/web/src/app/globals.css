@@ -93,9 +93,9 @@
     --muted:                   #F2F2F7;  /* Grouped background / tinted surfaces */
     --muted-foreground:        #6C6C70;  /* Apple tertiaryLabel solid — 5.2:1 contrast, WCAG AA */
 
-    /* Accent — same as primary for consistency */
-    --accent:                  #007AFF;
-    --accent-foreground:       #FFFFFF;
+    /* Accent — used for hover states on menus, ghost buttons, etc. */
+    --accent:                  #E5E5EA;  /* Apple systemGray5 */
+    --accent-foreground:       #000000;
 
     /* Semantic meaning tokens */
     --destructive:             #FF3B30;  /* Apple systemRed */
@@ -166,7 +166,7 @@
     --muted-foreground:        #ABABAF;  /* Apple secondaryLabel dark (EBEBF5 @ 60% on black) */
 
     /* Accent */
-    --accent:                  #0A84FF;
+    --accent:                  #2C2C2E;  /* Apple secondarySystemBackground dark */
     --accent-foreground:       #FFFFFF;
 
     /* Semantic meaning tokens */
@@ -354,10 +354,7 @@
         @apply text-xs;
     }
 
-    /* Link styling */
-    a {
-        @apply text-base underline-offset-4 hover:underline;
-    }
+    /* Link styling removed to prevent leaking into asChild components */
 
     /* Code blocks */
     code {
@@ -370,6 +367,12 @@
 }
 
 /* ── Utilities ─────────────────────────────────────────── */
+@layer components {
+    .text-link {
+        @apply underline-offset-4 hover:underline text-primary cursor-pointer;
+    }
+}
+
 .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;

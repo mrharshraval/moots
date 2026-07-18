@@ -116,7 +116,7 @@ export function SettingsPanel() {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                        className="pl-9 h-10 border-border bg-background text-sm text-foreground"
                         disabled={loading}
                       />
                     </div>
@@ -132,7 +132,7 @@ export function SettingsPanel() {
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="pl-9 h-10 border-border bg-background text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                        className="pl-9 h-10 border-border bg-background text-sm text-foreground"
                         disabled={loading}
                       />
                     </div>
@@ -222,7 +222,7 @@ export function SettingsPanel() {
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="bg-background border border-border text-xs rounded-lg p-1.5 focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                      className="bg-background border border-border text-xs rounded-lg p-1.5 text-foreground"
                     >
                       <option value="en">English</option>
                       <option value="es">Español</option>

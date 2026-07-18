@@ -23,6 +23,7 @@ export interface MessageComposerProps {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
   onSkip?: () => void
   isSending?: boolean
+  isPartnerReconnecting?: boolean
 }
 
 export function MessageComposer({
@@ -38,7 +39,8 @@ export function MessageComposer({
   setInputText,
   textareaRef,
   onSkip,
-  isSending = false
+  isSending = false,
+  isPartnerReconnecting = false
 }: MessageComposerProps) {
   const [isFocused, setIsFocused] = React.useState(false)
 
@@ -57,7 +59,7 @@ export function MessageComposer({
     replyingTo,
     editingMsg,
     isSending,
-    isDisabled: !isWsReady,
+    isDisabled: !isWsReady || isPartnerReconnecting,
   })
 
   const handleCancelReply = React.useCallback(() => {
@@ -84,9 +86,6 @@ export function MessageComposer({
 
   return (
     <div className="sticky bottom-0 bg-background shrink-0 w-full z-20 pt-4 pb-12">
-      {/* ── BANNERS ── */}
-      <ComposerEditBanner editingMsg={editingMsg} onCancel={handleCancelEdit} />
-
       {/* ── COMPOSER PILL ── */}
       <div className="px-4 max-w-3xl mx-auto w-full">
         <div
@@ -95,6 +94,7 @@ export function MessageComposer({
           onBlurCapture={() => setIsFocused(false)}
         >
           <ComposerReplyPreview replyingTo={replyingTo} peerDisplayName={peerDisplayName} onCancel={handleCancelReply} />
+          <ComposerEditBanner editingMsg={editingMsg} onCancel={handleCancelEdit} />
 
           <div className="relative w-full shrink-0">
             {/* Content + scroll wrapper */}
@@ -113,6 +113,7 @@ export function MessageComposer({
                 onKeyDown={handleInternalKeyDown}
                 textareaRef={textareaRef}
                 isMultiline={isMultiline}
+                placeholder={isPartnerReconnecting ? "Partner is reconnecting..." : "Message"}
               />
             </div>
 

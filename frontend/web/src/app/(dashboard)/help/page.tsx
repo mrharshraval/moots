@@ -79,7 +79,7 @@ export default function HelpCenterPage() {
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
               Need help resolving issues with your account or billing? Write to our support inbox.
             </p>
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs font-semibold text-primary hover:underline">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs font-semibold text-primary ">
               {SUPPORT_EMAIL}
             </a>
           </CardContent>
@@ -97,7 +97,7 @@ export default function HelpCenterPage() {
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
               To keep Moots safe and fun for everyone, read our rules regarding harassment, spam, and media sharing.
             </p>
-            <a href="/safety" className="text-xs font-semibold text-primary hover:underline">
+            <a href="/safety" className="text-xs font-semibold text-primary ">
               Read Guidelines
             </a>
           </CardContent>
@@ -117,7 +117,7 @@ export default function HelpCenterPage() {
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
               Understand what information we collect, how it is used, and your rights under GDPR.
             </p>
-            <a href="/privacy" className="text-xs font-semibold text-primary hover:underline">
+            <a href="/privacy" className="text-xs font-semibold text-primary ">
               View Privacy Policy
             </a>
           </CardContent>
@@ -134,7 +134,7 @@ export default function HelpCenterPage() {
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
               Read our general terms governing your usage of the Moots matchmaking client.
             </p>
-            <a href="/terms" className="text-xs font-semibold text-primary hover:underline">
+            <a href="/terms" className="text-xs font-semibold text-primary ">
               View Terms
             </a>
           </CardContent>

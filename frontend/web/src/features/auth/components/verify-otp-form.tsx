@@ -2,36 +2,65 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/ui/card";
-import { Label } from "@/shared/ui/label";
-import { toast } from "sonner";
-import { Mail, CheckCircle2 } from "lucide-react";
+import { useSession } from "@/providers/auth-provider";
 import { apiRequest } from "@/infrastructure/http/api-client";
 import { env } from "@/env";
+import { OTPVerifyForm } from "./otp-verify-form";
 
 export function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { update } = useSession();
   const emailParam = searchParams.get("email") || "";
 
-  const [email, setEmail] = useState(emailParam);
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const [otpError, setOtpError] = useState("");
+  const [countdown, setCountdown] = useState(30);
+
   useEffect(() => {
-    if (emailParam) {
-      setEmail(emailParam);
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-  }, [emailParam]);
+  }, [countdown]);
+
+  useEffect(() => {
+    // Read from sessionStorage (FAANG standard to avoid PII in URLs)
+    const storedEmail = typeof window !== "undefined" ? sessionStorage.getItem("verify_email") : null;
+    const finalEmail = emailParam || storedEmail;
+
+    if (finalEmail) {
+      setEmail(finalEmail);
+      // Clean up URL if they happened to arrive with the query param
+      if (emailParam && typeof window !== "undefined") {
+        window.history.replaceState({}, '', '/verify');
+      }
+    } else {
+      // No email found in session or URL, redirect back to signup
+      router.push("/signup");
+    }
+  }, [emailParam, router]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !otp) {
-      toast.error("Please enter both email and OTP");
+    
+    let valid = true;
+
+    if (!otp) {
+      setOtpError("Please enter the OTP.");
+      valid = false;
+    } else if (otp.length < 6) {
+      setOtpError("OTP must be 6 digits.");
+      valid = false;
+    } else {
+      setOtpError("");
+    }
+
+    if (!valid) {
       return;
     }
 
@@ -48,86 +77,64 @@ export function VerifyOtpForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Verification failed");
+        const errorMsg = typeof data.error === "string" 
+          ? data.error 
+          : data.error?.message || data.message || "Verification failed. Please check the code and try again.";
+        setOtpError(errorMsg);
         return;
       }
 
       setSuccess(true);
-      toast.success("Email verified successfully! You can now log in.");
-      setTimeout(() => {
-        router.push(`/login?email=${encodeURIComponent(email)}&verified=true`);
-      }, 2000);
+      await update();
+      router.push("/chat");
     } catch (err) {
       console.error(err);
-      toast.error("An unexpected error occurred");
+      setOtpError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResend = async () => {
+    if (countdown > 0) return;
+    
+    try {
+      const res = await apiRequest(`${env.NEXT_PUBLIC_API_URL}/api/auth/resend-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+        actionName: "VerifyPage Resend OTP",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = typeof data.error === "string"
+          ? data.error
+          : data.error?.message || data.message || "Failed to resend code. Please try again.";
+        setOtpError(errorMsg);
+        return;
+      }
+      
+      setCountdown(30);
+    } catch (err) {
+      console.error(err);
+      setOtpError("An unexpected error occurred");
+    }
+  };
+
   return (
-    <Card className="w-full max-w-md border-border bg-card shadow-lg">
-      <CardHeader className="space-y-1 text-center">
-        <div className="mx-auto my-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Mail className="h-6 w-6" />
-        </div>
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
-          Verify Email
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Enter the 6-digit OTP code sent to your email address
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {success ? (
-          <div className="flex flex-col items-center justify-center space-y-3 py-6 text-center">
-            <CheckCircle2 className="h-14 w-14 text-emerald-500 animate-bounce" />
-            <h3 className="font-bold text-foreground text-sm">Verification Complete</h3>
-            <p className="text-xs text-muted-foreground">Redirecting to login</p>
-          </div>
-        ) : (
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-              <Label htmlFor="email" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-                Email Address
-              </Label>
-              <Input
-                 id="email"
-                 type="email"
-                 placeholder="name@example.com"
-                 value={email}
-                 onChange={(e) => setEmail(e.target.value)}
-                 className="w-full bg-transparent border-none p-0 h-6 text-sm text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading || !!emailParam}
-              />
-            </div>
-            <div className="relative border border-border rounded-xl px-3 py-1.5 bg-muted/20 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/50 transition-all">
-              <Label htmlFor="otp" className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
-                One-Time Password (OTP)
-              </Label>
-              <Input
-                 id="otp"
-                 type="text"
-                 maxLength={6}
-                 placeholder="123456"
-                 value={otp}
-                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                 className="w-full bg-transparent border-none p-0 h-7 text-center text-xl font-bold tracking-[8px] text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-hidden"
-                 disabled={loading}
-              />
-            </div>
-            <Button type="submit" className="w-full h-10 text-xs font-semibold" disabled={loading}>
-              {loading ? "Verifying" : "Verify Code"}
-            </Button>
-          </form>
-        )}
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-center gap-1 border-t border-border/40 p-4 text-center">
-        <span className="text-[11px] text-muted-foreground">Didn't receive the code?</span>
-        <Link href="/signup" className="text-[11px] font-semibold text-primary hover:underline">
-          Try Signing Up Again
-        </Link>
-      </CardFooter>
-    </Card>
+    <OTPVerifyForm
+      title="Verify your email"
+      email={email}
+      otp={otp}
+      setOtp={setOtp}
+      otpError={otpError}
+      setOtpError={setOtpError}
+      loading={loading}
+      onVerify={handleVerify}
+      onResend={handleResend}
+      countdown={countdown}
+    />
   );
 }

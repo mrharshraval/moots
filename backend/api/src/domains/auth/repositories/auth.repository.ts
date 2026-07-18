@@ -1,6 +1,6 @@
 import { prisma } from "../../../database/index.js";
 
-import { User, VerificationToken, Prisma } from "@prisma/client";
+import { User, VerificationToken, Prisma, VerificationTokenType } from "@prisma/client";
 
 export class AuthRepository {
   async findUserByEmail(email: string): Promise<User | null> {
@@ -27,17 +27,17 @@ export class AuthRepository {
     return (tx || prisma).user.update({ where: { id }, data });
   }
 
-  async deleteVerificationTokens(identifier: string, tx?: Prisma.TransactionClient) {
-    return (tx || prisma).verificationToken.deleteMany({ where: { identifier } });
+  async deleteVerificationTokens(identifier: string, type: VerificationTokenType = "VERIFY_EMAIL", tx?: Prisma.TransactionClient) {
+    return (tx || prisma).verificationToken.deleteMany({ where: { identifier, type } });
   }
 
-  async createVerificationToken(data: { identifier: string; token: string; expires: Date }, tx?: Prisma.TransactionClient): Promise<VerificationToken> {
+  async createVerificationToken(data: { identifier: string; token: string; expires: Date, type?: VerificationTokenType }, tx?: Prisma.TransactionClient): Promise<VerificationToken> {
     return (tx || prisma).verificationToken.create({ data });
   }
 
-  async findVerificationToken(identifier: string, token: string): Promise<VerificationToken | null> {
+  async findVerificationToken(identifier: string, token: string, type: VerificationTokenType = "VERIFY_EMAIL"): Promise<VerificationToken | null> {
     return prisma.verificationToken.findFirst({
-      where: { identifier, token },
+      where: { identifier, token, type },
     });
   }
 

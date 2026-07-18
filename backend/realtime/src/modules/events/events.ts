@@ -95,8 +95,8 @@ export function handleDomainEvent(event: DomainEvent) {
       };
       
       // Clean up internal routing keys from the public payload
-      delete wsMsg.conversationId;
-      delete wsMsg.senderActorId;
+      delete (wsMsg as any).conversationId;
+      delete (wsMsg as any).senderActorId;
 
       if (session) {
         session.messages.push({ ...wsMsg, _actorId: senderActorId });

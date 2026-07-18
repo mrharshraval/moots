@@ -2,7 +2,7 @@ import { getAccessToken } from "@/providers/auth-provider"
 import { env } from "@/env"
 import { logger } from "@/shared/utils/logger"
 
-export type WsEventHandler = (payload: any) => void
+export type WsEventHandler = (payload: unknown) => void
 
 class WebSocketGateway {
   private ws: WebSocket | null = null
@@ -12,6 +12,7 @@ class WebSocketGateway {
   private reconnectDelay = 1000 // Starts at 1s
   private isConnecting = false
   private intentionalDisconnect = false
+  private reconnectTimeoutId: NodeJS.Timeout | null = null
 
   private listeners: Map<string, Set<WsEventHandler>> = new Map()
 
@@ -69,14 +70,18 @@ class WebSocketGateway {
         logger.info(`WebSocketGateway: Connected successfully`, { requestId })
         if (this.token) {
           this.send("authenticate", { token: this.token })
+        } else {
+          this.emit("open", null)
         }
-        this.emit("open", null)
       }
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
           if (data && data.type) {
+            if (data.type === "authenticated") {
+              this.emit("open", null)
+            }
             this.emit(data.type, data.payload)
           }
         } catch (e) {
@@ -112,7 +117,8 @@ class WebSocketGateway {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
     
     console.log(`WebSocket reconnecting in ${delay}ms... (Attempt ${this.reconnectAttempts})`)
-    setTimeout(() => {
+    if (this.reconnectTimeoutId) clearTimeout(this.reconnectTimeoutId)
+    this.reconnectTimeoutId = setTimeout(() => {
       this.connect()
     }, delay)
   }
@@ -120,13 +126,17 @@ class WebSocketGateway {
   disconnect() {
     this.intentionalDisconnect = true
     this.isConnecting = false
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId)
+      this.reconnectTimeoutId = null
+    }
     if (this.ws) {
       this.ws.close()
       this.ws = null
     }
   }
 
-  send(type: string, payload: any = {}) {
+  send(type: string, payload: unknown = {}) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }))
     } else {
@@ -147,7 +157,7 @@ class WebSocketGateway {
     }
   }
 
-  private emit(type: string, payload: any) {
+  private emit(type: string, payload: unknown) {
     const handlers = this.listeners.get(type)
     if (handlers) {
       handlers.forEach(handler => {

@@ -69,7 +69,7 @@ export function CookieBanner() {
               <h4 className="text-sm font-semibold">Cookie Consent</h4>
               <p className="text-xs text-muted-foreground leading-normal">
                 We use cookies to optimize matchmaking speed, remember your preferences, and secure chat logs. Learn more in our{" "}
-                <a href="/policies/cookies" className="text-primary hover:underline font-medium">
+                <a href="/policies/cookies" className="text-primary  font-medium">
                   Cookie Policy
                 </a>.
               </p>

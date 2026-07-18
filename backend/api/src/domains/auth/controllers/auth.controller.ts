@@ -2,7 +2,15 @@ import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service.js";
 import { sendSuccess } from "../../../shared/utils/response.js";
 import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
-import { RegisterInput, VerifyOtpInput, LoginInput } from "../dto/auth.dto.js";
+import { 
+  RegisterInput, 
+  VerifyOtpInput, 
+  LoginInput, 
+  ResendOtpInput,
+  PasswordResetRequestInput,
+  PasswordResetVerifyInput,
+  PasswordResetCompleteInput
+} from "../dto/auth.dto.js";
 import { UnauthorizedError } from "../../../shared/errors/AppError.js";
 
 export class AuthController {
@@ -62,11 +70,28 @@ export class AuthController {
     return sendSuccess(res, undefined, { message: "Registration successful. OTP sent." });
   });
 
+  resendOtp = asyncHandler(async (req: Request<{}, {}, ResendOtpInput>, res: Response) => {
+    const { email } = req.body;
+    await this.service.resendOtp(email);
+    return sendSuccess(res, undefined, { message: "OTP resent successfully." });
+  });
+
   verifyOtp = asyncHandler(async (req: Request<{}, {}, VerifyOtpInput>, res: Response) => {
     const { email, otp } = req.body;
+    const ipAddress = this.getClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
 
-    await this.service.verifyOtp({ email, otp });
-    return sendSuccess(res, undefined, { message: "Email verified successfully" });
+    const data = await this.service.verifyOtp({ email, otp }, ipAddress, userAgent);
+    
+    if (data.actorSessionToken) {
+      this.setSessionCookie(res, data.actorSessionToken);
+    }
+
+    return sendSuccess(res, { 
+      accessToken: data.accessToken, 
+      user: data.user,
+      unreadNotificationCount: data.unreadNotificationCount 
+    }, { message: "Email verified successfully" });
   });
 
   login = asyncHandler(async (req: Request<{}, {}, LoginInput>, res: Response) => {
@@ -103,5 +128,36 @@ export class AuthController {
       accessToken: data.accessToken,
       unreadNotificationCount: data.unreadNotificationCount 
     });
+  });
+
+  logout = asyncHandler(async (req: Request, res: Response) => {
+    // Clear the cookie
+    res.clearCookie("moots_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    });
+
+    return sendSuccess(res, undefined, { message: "Logged out successfully" });
+  });
+
+  requestPasswordReset = asyncHandler(async (req: Request<{}, {}, PasswordResetRequestInput>, res: Response) => {
+    const { email } = req.body;
+    await this.service.requestPasswordReset(email);
+    // Don't leak if the account exists
+    return sendSuccess(res, undefined, { message: "If an account with that email exists, we sent a password reset link." });
+  });
+
+  verifyPasswordResetOtp = asyncHandler(async (req: Request<{}, {}, PasswordResetVerifyInput>, res: Response) => {
+    const { email, otp } = req.body;
+    const data = await this.service.verifyPasswordResetOtp(email, otp);
+    return sendSuccess(res, data, { message: "OTP verified successfully." });
+  });
+
+  completePasswordReset = asyncHandler(async (req: Request<{}, {}, PasswordResetCompleteInput>, res: Response) => {
+    const { resetToken, password } = req.body;
+    await this.service.completePasswordReset(resetToken, password);
+    return sendSuccess(res, undefined, { message: "Password reset completely successfully." });
   });
 }

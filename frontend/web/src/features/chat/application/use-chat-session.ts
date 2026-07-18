@@ -12,15 +12,22 @@ import { useTypingIndicator } from "./hooks/use-typing-indicator"
 import { useConnections } from "./hooks/use-connections"
 import { useMediaStream } from "./hooks/use-media-stream"
 import { useWebRTCCall } from "./hooks/use-webrtc-call"
-import { useChatMessages } from "./hooks/use-chat-messages"
+import { useChatHistory } from "./hooks/use-chat-history"
+import { useChatMessageState } from "./hooks/use-chat-message-state"
+import { useChatComposer } from "./hooks/use-chat-composer"
+import { useChatRealtimeSync } from "./hooks/use-chat-realtime-sync"
+
 
 export function useChatSession(sessionId: string, session: Session | null) {
   // 1. Partner state store (Zustand) values needed for local computation or API compatibility
   const {
     peerNickname,
     peerUsername,
+    peerActorId,
     isStrangerDisconnected,
     setIsStrangerDisconnected,
+    isStrangerReconnecting,
+    isReconnectingLocal,
     isWsReady,
     reset: resetPartnerState,
   } = usePartnerStateStore()
@@ -35,29 +42,37 @@ export function useChatSession(sessionId: string, session: Session | null) {
     onOpen: sendReadReceipt,
   })
 
-  // 4. Chat messages, status updates, sending/editing messages
+  const { userId } = useChatHistory({ sessionId, session })
+  
   const {
-    userId,
-    inputText,
-    setInputText,
     replyingTo,
     setReplyingTo,
     editingMsg,
     setEditingMsg,
     expandedMsgs,
-    peerActorId,
-    messages,
+    toggleExpand,
     isEngaged,
     lastUserMsgId,
-    toggleExpand,
+  } = useChatMessageState({ sessionId })
+
+  const {
+    inputText,
+    setInputText,
     handleReact,
     handleInputChange,
     handleSend,
-  } = useChatMessages({
+  } = useChatComposer({
     sessionId,
     isWsReady,
-    sendReadReceipt,
+    replyingTo,
+    editingMsg,
+    setReplyingTo,
+    setEditingMsg
   })
+
+
+  // Realtime Sync logic (decoupled from service)
+  useChatRealtimeSync(sessionId, userId, sendReadReceipt)
 
   // 5. Typing indicator listeners and cleanup
   const { isTyping } = useTypingIndicator({ sessionId })
@@ -110,7 +125,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
 
   // 10. Partner store cleanup on session change and unmount
   React.useEffect(() => {
-    resetPartnerState()
     return () => {
       resetPartnerState()
     }
@@ -129,6 +143,8 @@ export function useChatSession(sessionId: string, session: Session | null) {
     peerDisplayName,
     isStrangerDisconnected,
     setIsStrangerDisconnected,
+    isStrangerReconnecting,
+    isReconnectingLocal,
     isTyping,
     connectionStatus,
     isWsReady,
@@ -145,7 +161,6 @@ export function useChatSession(sessionId: string, session: Session | null) {
     handleAcceptConnectionRequest,
     handleInputChange,
     handleSend,
-    messages,
     isEngaged,
     lastUserMsgId,
     conversationStatus,
